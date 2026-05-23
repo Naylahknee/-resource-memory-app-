@@ -154,6 +154,9 @@ Contributions are welcome. To get started:
 4. Push to the branch — `git push origin feature/your-feature-name`
 5. Open a Pull Request
 
+If you liked the repo then kindly support it by giving it a star ⭐!
+
+
 ---
 
 ## License
