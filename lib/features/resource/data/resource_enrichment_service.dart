@@ -27,15 +27,49 @@ class ResourceDraft {
   final String? thumbnail;
   final List<String> topics;
   final List<String> technologies;
+
+  ResourceDraft copyWith({
+    String? summary,
+    String? whyUseful,
+    String? useWhen,
+    List<String>? topics,
+    List<String>? technologies,
+  }) {
+    return ResourceDraft(
+      title: title,
+      summary: summary ?? this.summary,
+      whyUseful: whyUseful ?? this.whyUseful,
+      useWhen: useWhen ?? this.useWhen,
+      type: type,
+      platform: platform,
+      creator: creator,
+      thumbnail: thumbnail,
+      topics: topics ?? this.topics,
+      technologies: technologies ?? this.technologies,
+    );
+  }
 }
 
 class ResourceEnrichmentService {
+  static const String _aiUrl = String.fromEnvironment('RESOURCE_MEMORY_AI_URL');
+
   static Future<ResourceDraft> enrich(String rawUrl) async {
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
       throw const FormatException('Enter a valid http or https link.');
     }
 
+    final base = await _deterministic(uri);
+    if (_aiUrl.isEmpty) return base;
+
+    try {
+      return await _enrichWithAi(uri, base);
+    } catch (_) {
+      return base;
+    }
+  }
+
+  static Future<ResourceDraft> _deterministic(Uri uri) async {
     final host = uri.host.toLowerCase().replaceFirst('www.', '');
 
     if (host == 'youtu.be' || host.endsWith('youtube.com')) {
@@ -51,13 +85,44 @@ class ResourceEnrichmentService {
     return _generic(uri);
   }
 
+  static Future<ResourceDraft> _enrichWithAi(Uri uri, ResourceDraft base) async {
+    final response = await http
+        .post(
+          Uri.parse(_aiUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'url': uri.toString(),
+            'title': base.title,
+            'creator': base.creator,
+            'platform': base.platform,
+            'summary': base.summary,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('AI enrichment failed');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return base.copyWith(
+      summary: json['summary'] as String?,
+      whyUseful: json['whyUseful'] as String?,
+      useWhen: json['useWhen'] as String?,
+      topics: List<String>.from(json['topics'] as List? ?? base.topics),
+      technologies:
+          List<String>.from(json['technologies'] as List? ?? base.technologies),
+    );
+  }
+
   static Future<ResourceDraft> _youtube(Uri uri) async {
     try {
       final endpoint = Uri.https('www.youtube.com', '/oembed', {
         'url': uri.toString(),
         'format': 'json',
       });
-      final response = await http.get(endpoint).timeout(const Duration(seconds: 8));
+      final response =
+          await http.get(endpoint).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final title = json['title'] as String? ?? 'YouTube video';
@@ -69,8 +134,10 @@ class ResourceEnrichmentService {
           platform: 'YouTube',
           type: ResourceType.video,
           summary: 'A saved YouTube resource about ${_topicFromTitle(title)}.',
-          whyUseful: 'Useful as a visual walkthrough or reference while learning and building.',
-          useWhen: 'Resurface when a project or learning goal overlaps with ${_topicFromTitle(title)}.',
+          whyUseful:
+              'Useful as a visual walkthrough or reference while learning and building.',
+          useWhen:
+              'Resurface when a project or learning goal overlaps with ${_topicFromTitle(title)}.',
           topics: _keywords(title),
           technologies: _technologyKeywords(title),
         );
@@ -110,8 +177,10 @@ class ResourceEnrichmentService {
             summary: description?.isNotEmpty == true
                 ? description!
                 : 'GitHub repository by $owner.',
-            whyUseful: 'Useful as working code, implementation reference, or a starting point for a related build.',
-            useWhen: 'Resurface when building something related to ${description ?? repo}.',
+            whyUseful:
+                'Useful as working code, implementation reference, or a starting point for a related build.',
+            useWhen:
+                'Resurface when building something related to ${description ?? repo}.',
             topics: topics,
             technologies: [if (language != null) language],
           );
@@ -148,13 +217,16 @@ class ResourceEnrichmentService {
           );
     final creator = handle == null || handle.isEmpty ? null : handle.substring(1);
     return ResourceDraft(
-      title: creator == null ? 'Threads resource' : 'Threads resource from @$creator',
+      title:
+          creator == null ? 'Threads resource' : 'Threads resource from @$creator',
       creator: creator,
       platform: 'Threads',
       type: ResourceType.article,
       summary: 'A saved Threads post or creator resource.',
-      whyUseful: 'Useful for practical ideas, recommendations, tools, or advice worth revisiting.',
-      useWhen: 'Resurface when the current project matches the ideas or tools you saved from this source.',
+      whyUseful:
+          'Useful for practical ideas, recommendations, tools, or advice worth revisiting.',
+      useWhen:
+          'Resurface when the current project matches the ideas or tools you saved from this source.',
       topics: const ['creator resource'],
     );
   }
@@ -170,20 +242,39 @@ class ResourceEnrichmentService {
       platform: host,
       type: ResourceType.website,
       summary: 'Saved website from $host.',
-      whyUseful: 'A resource you chose to keep for future learning or project work.',
-      useWhen: 'Resurface when a current task overlaps with this site or its purpose.',
+      whyUseful:
+          'A resource you chose to keep for future learning or project work.',
+      useWhen:
+          'Resurface when a current task overlaps with this site or its purpose.',
       topics: _keywords(uri.path.replaceAll('/', ' ')),
     );
   }
 
   static String _topicFromTitle(String title) {
-    final words = title.split(RegExp(r'\s+')).where((w) => w.length > 2).take(6);
+    final words =
+        title.split(RegExp(r'\s+')).where((w) => w.length > 2).take(6);
     return words.join(' ');
   }
 
   static List<String> _keywords(String text) {
     const stop = {
-      'the','and','for','with','this','that','from','your','you','how','what','into','using','use','app','video','tutorial'
+      'the',
+      'and',
+      'for',
+      'with',
+      'this',
+      'that',
+      'from',
+      'your',
+      'you',
+      'how',
+      'what',
+      'into',
+      'using',
+      'use',
+      'app',
+      'video',
+      'tutorial'
     };
     return text
         .toLowerCase()
@@ -196,7 +287,26 @@ class ResourceEnrichmentService {
   }
 
   static List<String> _technologyKeywords(String text) {
-    const tech = ['flutter','dart','luau','lua','roblox','react','next.js','nextjs','typescript','javascript','python','swift','kotlin','css','html','firebase','supabase','hive'];
+    const tech = [
+      'flutter',
+      'dart',
+      'luau',
+      'lua',
+      'roblox',
+      'react',
+      'next.js',
+      'nextjs',
+      'typescript',
+      'javascript',
+      'python',
+      'swift',
+      'kotlin',
+      'css',
+      'html',
+      'firebase',
+      'supabase',
+      'hive'
+    ];
     final lower = text.toLowerCase();
     return tech.where((item) => lower.contains(item)).toList();
   }
