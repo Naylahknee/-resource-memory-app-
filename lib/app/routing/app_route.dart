@@ -1,5 +1,6 @@
 class Routes {
   static const homeScreen = '/';
-  static const addScreen = 'add-screen';
-  static const updateScreen = 'update-screen';
+  static const saveResourceScreen = 'save-resource';
+  static const libraryScreen = 'library';
+  static const projectMatchScreen = 'project-match';
 }
