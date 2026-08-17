@@ -13,6 +13,7 @@ import 'package:taskee/app/routing/go_router.dart';
 import 'package:taskee/features/todo/presentation/bloc/todo_event.dart';
 import 'package:taskee/di/dependency_injection.dart';
 import 'package:taskee/features/todo/data/datasource/hive_todo_local_datasource.dart';
+import 'package:taskee/features/resource/data/resource_store.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 Future<void> main() async {
@@ -24,6 +25,7 @@ Future<void> main() async {
 
   final hiveNoteLocalDatasource = HiveNoteLocalDatasource();
   await hiveNoteLocalDatasource.initialize();
+  await ResourceStore.initialize();
   await NotificationService().init();
 
   configureDependencies(
@@ -31,7 +33,6 @@ Future<void> main() async {
     hiveNoteLocalDatasource: hiveNoteLocalDatasource,
   );
 
-  // ← load saved tab before app starts
   final prefs = await SharedPreferences.getInstance();
   final savedTab = prefs.getInt('selected_tab') ?? 0;
 
@@ -51,11 +52,6 @@ class MyAppState extends State<MyApp> {
   final NoteBloc noteBloc = getIt<NoteBloc>();
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
     Hive.close();
     super.dispose();
@@ -72,9 +68,8 @@ class MyAppState extends State<MyApp> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-
         child: MaterialApp.router(
-          title: 'Taskee',
+          title: 'Resource Memory',
           theme: AppTheme.dark,
           debugShowCheckedModeBanner: false,
           routerConfig: goRouter,
