@@ -20,6 +20,12 @@ class ResourceStore {
     return resources;
   }
 
+  static Resource? getById(String id) {
+    final value = box.get(id);
+    if (value == null) return null;
+    return Resource.fromMap(Map<String, dynamic>.from(value));
+  }
+
   static Future<void> save(Resource resource) async {
     await box.put(resource.id, resource.toMap());
   }
