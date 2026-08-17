@@ -4,7 +4,7 @@ Save useful coding resources once. Find them again when a project actually needs
 
 ## MVP
 
-Resource Memory is a Flutter app built from the open-source Taskee foundation. The V1 core loop is:
+Resource Memory is a Flutter app built from the open-source Taskee foundation. The core loop is:
 
 **Save → Understand → Store → Search → Resurface for a project**
 
@@ -14,11 +14,14 @@ Resource Memory is a Flutter app built from the open-source Taskee foundation. T
 - Automatically enrich YouTube links with oEmbed metadata
 - Automatically enrich public GitHub repositories with repository metadata
 - Capture creator/platform context for Threads links
+- Optional server-side AI enrichment with deterministic fallback
 - Save screenshots from the photo library
+- Receive shared text, URLs, and images on Android
+- iOS Share Extension source scaffold included; Xcode target/App Group setup remains device-specific
 - Store resources locally with Hive
 - Search the personal resource library
 - Open saved links externally
-- Delete resources
+- Edit and delete saved resources
 - Describe a new project in plain language
 - Rank saved resources against the project context
 - Show why a result matched
@@ -33,17 +36,14 @@ The MVP exists to prove one behavior:
 
 The app should reduce organizational labor rather than create more tagging work.
 
-## Current enrichment behavior
+## Enrichment behavior
 
-V1 uses lightweight platform-aware enrichment rather than a hosted AI backend:
-
-- **YouTube:** title, creator, thumbnail, platform and generated retrieval context
-- **GitHub:** repository name, owner, description, language, topics and generated retrieval context
-- **Threads:** creator handle when available plus generated retrieval context
+- **YouTube:** title, creator, thumbnail, platform and retrieval context
+- **GitHub:** repository name, owner, description, language, topics and retrieval context
+- **Threads:** creator handle when available plus retrieval context
 - **Other websites:** domain-based fallback context
 - **Screenshots:** local visual-reference capture
-
-A later backend can add richer AI extraction and screenshot understanding without changing the core Resource model.
+- **AI endpoint:** when configured, can enrich summary, why-useful, use-when, topics, and technologies; deterministic enrichment remains the fallback
 
 ## Tech stack
 
@@ -51,9 +51,10 @@ A later backend can add richer AI extraction and screenshot understanding withou
 - Hive local storage
 - GoRouter
 - Google Fonts / existing Taskee theme system
-- `http` for supported public metadata lookups
+- `http` for supported public metadata lookups and optional enrichment API
 - `image_picker` for screenshots
 - `url_launcher` for opening saved resources
+- `receive_sharing_intent` for incoming mobile shares
 
 ## Run locally
 
@@ -67,6 +68,10 @@ For web:
 ```bash
 flutter run -d chrome
 ```
+
+## Web preview
+
+`.github/workflows/deploy-pages.yml` builds the actual Flutter web application and deploys it to GitHub Pages whenever `main` changes. GitHub Pages must be enabled for the repository with **GitHub Actions** selected as the source.
 
 ## Structure
 
@@ -89,7 +94,7 @@ Legacy Taskee task/note source remains in the fork for reference but is no longe
 
 ## CI
 
-`.github/workflows/flutter-ci.yml` runs dependency install, analysis, tests, and a release web build when GitHub Actions is enabled for the fork.
+`.github/workflows/flutter-ci.yml` runs dependency install, analysis, tests, and a release web build.
 
 ## Attribution and license
 
