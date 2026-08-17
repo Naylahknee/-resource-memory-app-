@@ -63,4 +63,50 @@ class Resource {
         ...topics,
         ...technologies,
       ].whereType<String>().join(' ').toLowerCase();
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'title': title,
+        'url': url,
+        'creator': creator,
+        'platform': platform,
+        'summary': summary,
+        'whyUseful': whyUseful,
+        'useWhen': useWhen,
+        'thumbnail': thumbnail,
+        'type': type.name,
+        'status': status.name,
+        'topics': topics,
+        'technologies': technologies,
+        'savedAt': savedAt.toIso8601String(),
+        'lastUsedAt': lastUsedAt?.toIso8601String(),
+      };
+
+  factory Resource.fromMap(Map<String, dynamic> map) {
+    return Resource(
+      id: map['id'] as String,
+      title: map['title'] as String,
+      url: map['url'] as String?,
+      creator: map['creator'] as String?,
+      platform: map['platform'] as String?,
+      summary: map['summary'] as String? ?? '',
+      whyUseful: map['whyUseful'] as String? ?? '',
+      useWhen: map['useWhen'] as String? ?? '',
+      thumbnail: map['thumbnail'] as String?,
+      type: ResourceType.values.firstWhere(
+        (value) => value.name == map['type'],
+        orElse: () => ResourceType.other,
+      ),
+      status: ResourceStatus.values.firstWhere(
+        (value) => value.name == map['status'],
+        orElse: () => ResourceStatus.saved,
+      ),
+      topics: List<String>.from(map['topics'] as List? ?? const []),
+      technologies: List<String>.from(map['technologies'] as List? ?? const []),
+      savedAt: DateTime.tryParse(map['savedAt'] as String? ?? '') ?? DateTime.now(),
+      lastUsedAt: map['lastUsedAt'] == null
+          ? null
+          : DateTime.tryParse(map['lastUsedAt'] as String),
+    );
+  }
 }
