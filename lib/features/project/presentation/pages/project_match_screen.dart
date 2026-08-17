@@ -4,6 +4,7 @@ import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 import 'package:taskee/features/widget/app_gradient.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProjectMatchScreen extends StatefulWidget {
   const ProjectMatchScreen({super.key});
@@ -14,23 +15,43 @@ class ProjectMatchScreen extends StatefulWidget {
 
 class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
   final TextEditingController _projectController = TextEditingController();
-  List<Resource> _matches = const [];
+  List<_Match> _matches = const [];
   bool _searched = false;
+
+  static const _stopWords = {
+    'the','and','for','with','that','this','from','into','using','use','make','build','building','create','creating','want','need','app','project','system'
+  };
 
   void _findMatches() {
     final query = _projectController.text.trim().toLowerCase();
     if (query.isEmpty) return;
-    final terms = query.split(RegExp(r'\s+')).where((term) => term.length > 2).toSet();
+    final terms = query
+        .replaceAll(RegExp(r'[^a-z0-9+#. ]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((term) => term.length > 2 && !_stopWords.contains(term))
+        .toSet();
+
     final ranked = ResourceStore.getAll().map((resource) {
-      final score = terms.where((term) => resource.searchableText.contains(term)).length;
-      return (resource: resource, score: score);
+      final matched = terms.where((term) => resource.searchableText.contains(term)).toList();
+      var score = matched.length;
+      for (final tech in resource.technologies) {
+        if (query.contains(tech.toLowerCase())) score += 2;
+      }
+      return _Match(resource: resource, score: score, terms: matched);
     }).where((item) => item.score > 0).toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
     setState(() {
       _searched = true;
-      _matches = ranked.map((item) => item.resource).toList();
+      _matches = ranked.take(12).toList();
     });
+  }
+
+  Future<void> _open(Resource resource) async {
+    final raw = resource.url;
+    if (raw == null) return;
+    final uri = Uri.tryParse(raw);
+    if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -50,25 +71,39 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back)),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back),
+                  ),
                   const SizedBox(width: 4),
                   Text('Start a project', style: AppTypography.h3),
                 ]),
                 const SizedBox(height: 20),
                 Text('What are you building?', style: AppTypography.h2),
                 const SizedBox(height: 8),
-                Text('Describe it normally. We’ll look through what you already saved.', style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  'Describe it normally. We’ll look through what you already saved.',
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                ),
                 const SizedBox(height: 18),
                 TextField(
                   controller: _projectController,
                   minLines: 3,
                   maxLines: 5,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _findMatches(),
                   decoration: InputDecoration(
                     hintText: 'I’m building a Roblox inventory system in Luau.',
                     filled: true,
                     fillColor: AppColors.surface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: AppColors.kBorderColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: AppColors.kBorderColor)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(color: AppColors.kBorderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(color: AppColors.kBorderColor),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -80,28 +115,66 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                     label: const Text('Find what I already saved'),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
                 if (_searched)
-                  Text(_matches.isEmpty ? 'No matches yet' : 'You already saved ${_matches.length} thing${_matches.length == 1 ? '' : 's'} that may help', style: AppTypography.h3),
+                  Text(
+                    _matches.isEmpty
+                        ? 'Nothing in your library matches yet.'
+                        : 'You already saved ${_matches.length} thing${_matches.length == 1 ? '' : 's'} that may help',
+                    style: AppTypography.h3,
+                  ),
+                if (_searched && _matches.isEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'That is useful too — now you know what you still need to find.',
+                    style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Expanded(
                   child: ListView.separated(
                     itemCount: _matches.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
-                      final resource = _matches[index];
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.kBorderColor)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(resource.title, style: AppTypography.h3),
-                            const SizedBox(height: 5),
-                            Text(resource.summary, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
-                            const SizedBox(height: 8),
-                            Text('Use when: ${resource.useWhen}', style: AppTypography.bodySm.copyWith(color: AppColors.accent)),
-                          ],
+                      final match = _matches[index];
+                      final resource = match.resource;
+                      return InkWell(
+                        onTap: resource.url == null ? null : () => _open(resource),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.kBorderColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Expanded(child: Text(resource.title, style: AppTypography.h3)),
+                                if (resource.url != null)
+                                  const Icon(Icons.open_in_new, size: 18, color: AppColors.textMuted),
+                              ]),
+                              const SizedBox(height: 5),
+                              Text(
+                                resource.summary,
+                                style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                              ),
+                              if (match.terms.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Matched: ${match.terms.join(' · ')}',
+                                  style: AppTypography.labelMd.copyWith(color: AppColors.accent),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              Text(
+                                'Use when: ${resource.useWhen}',
+                                style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -114,4 +187,11 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
       ),
     );
   }
+}
+
+class _Match {
+  const _Match({required this.resource, required this.score, required this.terms});
+  final Resource resource;
+  final int score;
+  final List<String> terms;
 }
