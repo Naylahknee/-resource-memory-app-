@@ -64,6 +64,40 @@ class Resource {
         ...technologies,
       ].whereType<String>().join(' ').toLowerCase();
 
+  Resource copyWith({
+    String? title,
+    String? url,
+    String? creator,
+    String? platform,
+    String? summary,
+    String? whyUseful,
+    String? useWhen,
+    String? thumbnail,
+    ResourceType? type,
+    ResourceStatus? status,
+    List<String>? topics,
+    List<String>? technologies,
+    DateTime? lastUsedAt,
+  }) {
+    return Resource(
+      id: id,
+      title: title ?? this.title,
+      url: url ?? this.url,
+      creator: creator ?? this.creator,
+      platform: platform ?? this.platform,
+      summary: summary ?? this.summary,
+      whyUseful: whyUseful ?? this.whyUseful,
+      useWhen: useWhen ?? this.useWhen,
+      thumbnail: thumbnail ?? this.thumbnail,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      topics: topics ?? this.topics,
+      technologies: technologies ?? this.technologies,
+      savedAt: savedAt,
+      lastUsedAt: lastUsedAt ?? this.lastUsedAt,
+    );
+  }
+
   Map<String, dynamic> toMap() => {
         'id': id,
         'title': title,
