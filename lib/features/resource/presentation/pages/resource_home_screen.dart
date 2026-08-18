@@ -42,7 +42,7 @@ class ResourceHomeScreen extends StatelessWidget {
                         SizedBox(height: isDesktop ? 28 : 24),
                         if (isDesktop)
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: _ActionCard(
