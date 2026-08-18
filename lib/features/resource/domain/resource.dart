@@ -30,6 +30,7 @@ class Resource {
     this.creator,
     this.platform,
     this.thumbnail,
+    this.assetPath,
     this.type = ResourceType.other,
     this.status = ResourceStatus.saved,
     this.topics = const [],
@@ -46,6 +47,7 @@ class Resource {
   final String whyUseful;
   final String useWhen;
   final String? thumbnail;
+  final String? assetPath;
   final ResourceType type;
   final ResourceStatus status;
   final List<String> topics;
@@ -73,6 +75,7 @@ class Resource {
     String? whyUseful,
     String? useWhen,
     String? thumbnail,
+    String? assetPath,
     ResourceType? type,
     ResourceStatus? status,
     List<String>? topics,
@@ -89,6 +92,7 @@ class Resource {
       whyUseful: whyUseful ?? this.whyUseful,
       useWhen: useWhen ?? this.useWhen,
       thumbnail: thumbnail ?? this.thumbnail,
+      assetPath: assetPath ?? this.assetPath,
       type: type ?? this.type,
       status: status ?? this.status,
       topics: topics ?? this.topics,
@@ -108,6 +112,7 @@ class Resource {
         'whyUseful': whyUseful,
         'useWhen': useWhen,
         'thumbnail': thumbnail,
+        'assetPath': assetPath,
         'type': type.name,
         'status': status.name,
         'topics': topics,
@@ -127,6 +132,7 @@ class Resource {
       whyUseful: map['whyUseful'] as String? ?? '',
       useWhen: map['useWhen'] as String? ?? '',
       thumbnail: map['thumbnail'] as String?,
+      assetPath: map['assetPath'] as String?,
       type: ResourceType.values.firstWhere(
         (value) => value.name == map['type'],
         orElse: () => ResourceType.other,
