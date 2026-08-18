@@ -5,13 +5,18 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:taskee/app/routing/go_router.dart';
 import 'package:taskee/app/theme/app_theme.dart';
+import 'package:taskee/features/resource/data/cloud_sync_service.dart';
 import 'package:taskee/features/resource/data/incoming_share_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
+  await CloudSyncService.initialize();
   await ResourceStore.initialize();
+  if (CloudSyncService.isSignedIn) {
+    await ResourceStore.syncNow();
+  }
   runApp(const ResourceMemoryApp());
 }
 
