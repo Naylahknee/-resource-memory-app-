@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
+import 'package:taskee/features/resource/data/cloud_sync_service.dart';
 import 'package:taskee/features/resource/data/resource_enrichment_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
@@ -72,6 +73,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
       name: image.name,
       path: image.path,
       mimeType: image.mimeType,
+      bytes: await image.readAsBytes(),
     );
   }
 
@@ -85,6 +87,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
         name: file.name,
         path: file.path,
         mimeType: file.mimeType,
+        bytes: await file.readAsBytes(),
         showConfirmation: false,
       );
       saved++;
@@ -99,6 +102,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
   Future<void> _saveFileReference({
     required String name,
     required String path,
+    required List<int> bytes,
     String? mimeType,
     bool showConfirmation = true,
   }) async {
@@ -108,23 +112,40 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
         RegExp(r'\.(png|jpe?g|gif|webp|heic)$', caseSensitive: false)
             .hasMatch(cleanName);
 
-    await ResourceStore.save(
-      Resource(
-        id: now.microsecondsSinceEpoch.toString(),
-        title: cleanName,
-        url: path.isEmpty ? null : path,
-        platform: isImage ? 'Screenshot' : 'Desktop file',
-        summary: isImage
-            ? 'A visual reference saved from your desktop.'
-            : 'A file saved from your desktop as a project reference.',
-        whyUseful: 'Kept because you chose it as something Future You may need again.',
-        useWhen: 'Resurface when a project overlaps with this file or visual reference.',
-        thumbnail: isImage && path.isNotEmpty ? path : null,
-        type: isImage ? ResourceType.screenshot : ResourceType.other,
-        topics: [if (isImage) 'screenshot', 'desktop drop'],
-        savedAt: now,
-      ),
+    var resource = Resource(
+      id: now.microsecondsSinceEpoch.toString(),
+      title: cleanName,
+      url: path.isEmpty ? null : path,
+      platform: isImage ? 'Screenshot' : 'Desktop file',
+      summary: isImage
+          ? 'A visual reference saved from your desktop.'
+          : 'A file saved from your desktop as a project reference.',
+      whyUseful: 'Kept because you chose it as something Future You may need again.',
+      useWhen: 'Resurface when a project overlaps with this file or visual reference.',
+      thumbnail: isImage && path.isNotEmpty ? path : null,
+      type: isImage ? ResourceType.screenshot : ResourceType.other,
+      topics: [if (isImage) 'screenshot', 'desktop drop'],
+      savedAt: now,
     );
+
+    await ResourceStore.save(resource);
+
+    if (CloudSyncService.isSignedIn && CloudSyncService.isConfigured && bytes.isNotEmpty) {
+      try {
+        final assetPath = await CloudSyncService.uploadAsset(
+          resourceId: resource.id,
+          fileName: cleanName,
+          bytes: bytes,
+          contentType: mimeType,
+        );
+        if (assetPath != null) {
+          resource = resource.copyWith(assetPath: assetPath);
+          await ResourceStore.save(resource);
+        }
+      } catch (_) {
+        // The local resource stays saved even if the cloud asset upload is interrupted.
+      }
+    }
 
     if (showConfirmation && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -234,14 +255,10 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                                 vertical: isDesktop ? 40 : 22,
                               ),
                               decoration: BoxDecoration(
-                                color: _dragging
-                                    ? AppColors.accentMuted
-                                    : AppColors.surface,
+                                color: _dragging ? AppColors.accentMuted : AppColors.surface,
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
-                                  color: _dragging
-                                      ? AppColors.accent
-                                      : AppColors.kBorderColor,
+                                  color: _dragging ? AppColors.accent : AppColors.kBorderColor,
                                   width: _dragging ? 2 : 1,
                                 ),
                               ),
