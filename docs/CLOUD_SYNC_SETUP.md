@@ -91,9 +91,11 @@ flutter run \
 - A Resource Memory email/password account can be used on desktop, web, Android, and iOS.
 - Saving or deleting while signed in mirrors resource metadata through the Worker into Neon.
 - `Sync now` uploads the local library and pulls the canonical library back down.
-- The Worker includes authenticated R2 upload/download endpoints for screenshots and dropped files.
+- Dropped files and screenshots upload their bytes to R2 when sync is connected.
+- Each synced file Resource stores an `assetPath` that points to its authenticated R2 endpoint.
+- The Worker can return the original bytes through `GET /assets/:resourceId` on another signed-in device.
 - The Neon database credential stays only in the Worker secret store.
 
-## Next client asset pass
+## Remaining presentation pass
 
-The R2 API is ready. The remaining client-side step is to upload the bytes from desktop/mobile capture through `/uploads/:resourceId` and use `/assets/:resourceId` when the resource is opened on another device.
+The storage and transfer path is wired. The next UI pass should render/download a synced `assetPath` from the Resource detail screen so a remote screenshot or file can be opened directly after it arrives on another device.
