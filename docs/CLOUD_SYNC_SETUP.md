@@ -1,79 +1,99 @@
 # Cloud sync setup
 
-Resource Memory keeps Hive as the local cache and mirrors resources to Supabase when a user connects a sync account. The same email/password account can be used on desktop, web, Android, and iOS.
+Resource Memory is local-first: Hive remains the fast offline cache on each device. Cross-device sync uses a Cloudflare Worker API, Neon Postgres for canonical resource data, and Cloudflare R2 for uploaded files.
 
-## 1. Create a Supabase project
+## Architecture
 
-Create a project and copy the Project URL and publishable key.
-
-## 2. Create the resources table
-
-Run this SQL in the Supabase SQL editor:
-
-```sql
-create table if not exists public.resources (
-  id text not null,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  data jsonb not null,
-  updated_at timestamptz not null default now(),
-  primary key (user_id, id)
-);
-
-alter table public.resources enable row level security;
-
-create policy "users can read their resources"
-on public.resources for select
-using (auth.uid() = user_id);
-
-create policy "users can insert their resources"
-on public.resources for insert
-with check (auth.uid() = user_id);
-
-create policy "users can update their resources"
-on public.resources for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
-
-create policy "users can delete their resources"
-on public.resources for delete
-using (auth.uid() = user_id);
-
-grant select, insert, update, delete on public.resources to authenticated;
+```text
+Flutter web / desktop / mobile
+        |
+        v
+Cloudflare Worker API
+   |              |
+   v              v
+Neon Postgres     R2
+resources/auth    dropped files/screenshots
 ```
 
-## 3. Add GitHub repository secrets
+The Flutter client never receives the Neon database connection string.
 
-In GitHub → repository Settings → Secrets and variables → Actions, add:
+## 1. Create Neon
 
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY`
+Create a Neon project and copy its Postgres connection string.
 
-The GitHub Pages workflow passes these into Flutter using `--dart-define`.
+Run `worker/schema.sql` against the Neon database. It creates:
 
-## 4. Native builds
+- `users`
+- `sessions`
+- `resources`
 
-Pass the same values when building locally:
+## 2. Create the R2 bucket
+
+Create an R2 bucket named:
+
+```text
+resource-memory-files
+```
+
+`worker/wrangler.jsonc` already declares it as the `RESOURCE_FILES` binding.
+
+## 3. Configure and deploy the Worker
+
+From the `worker` directory:
+
+```bash
+npm install
+npx wrangler secret put DATABASE_URL
+npm run deploy
+```
+
+Enter the Neon connection string when Wrangler asks for `DATABASE_URL`.
+
+The Worker exposes:
+
+```text
+POST   /auth/register
+POST   /auth/login
+POST   /auth/logout
+GET    /resources
+PUT    /resources/:id
+DELETE /resources/:id
+POST   /sync
+POST   /uploads/:resourceId
+GET    /assets/:resourceId
+GET    /health
+```
+
+Passwords are derived with PBKDF2 in the Worker. Session tokens are hashed before being stored in Neon.
+
+## 4. Connect the Flutter deployment
+
+After deploying the Worker, copy its public URL.
+
+In GitHub repository Settings → Secrets and variables → Actions, add:
+
+```text
+RESOURCE_API_URL=https://resource-memory-api.YOUR-SUBDOMAIN.workers.dev
+```
+
+The GitHub Pages workflow passes this value to Flutter with `--dart-define`.
+
+For local/native Flutter builds:
 
 ```bash
 flutter run \
-  --dart-define=SUPABASE_URL=YOUR_PROJECT_URL \
-  --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+  --dart-define=RESOURCE_API_URL=https://resource-memory-api.YOUR-SUBDOMAIN.workers.dev
 ```
-
-The publishable key is appropriate for client applications. Never use a secret or service-role key in the app. Row Level Security protects each user's rows.
-
-## 5. Authentication behavior
-
-The V1 sync screen supports email/password signup and login. If email confirmation is enabled in Supabase Auth, a new user must confirm their email before the first authenticated sync can complete.
 
 ## Sync behavior
 
-- Hive remains the local copy for fast/offline use.
-- Saving or deleting while signed in mirrors the change to Supabase.
-- `Sync now` uploads local resources, downloads cloud resources, and merges them by resource ID.
-- Signing into the same account on another device gives that device access to the same resource library.
-- Link/resource metadata syncs now.
+- Hive remains the local/offline copy.
+- A Resource Memory email/password account can be used on desktop, web, Android, and iOS.
+- Saving or deleting while signed in mirrors resource metadata through the Worker into Neon.
+- `Sync now` uploads the local library and pulls the canonical library back down.
+- The Worker includes authenticated R2 upload/download endpoints for screenshots and dropped files.
+- The Neon database credential stays only in the Worker secret store.
 
-## Asset sync follow-up
+## Next client asset pass
 
-Desktop drag-and-drop is implemented for files and screenshots. The resource record syncs across devices. A private Supabase Storage bucket is still needed if the original dropped file bytes themselves must travel between devices.
+The R2 API is ready. The remaining client-side step is to upload the bytes from desktop/mobile capture through `/uploads/:resourceId` and use `/assets/:resourceId` when the resource is opened on another device.
