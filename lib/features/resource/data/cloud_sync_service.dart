@@ -11,7 +11,7 @@ class CloudSyncService {
 
   static Future<void> initialize() async {
     if (!isConfigured || _initialized) return;
-    await Supabase.initialize(url: _url, anonKey: _key);
+    await Supabase.initialize(url: _url, publishableKey: _key);
     _initialized = true;
   }
 
