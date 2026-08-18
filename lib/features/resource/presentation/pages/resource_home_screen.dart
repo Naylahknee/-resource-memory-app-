@@ -124,8 +124,20 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(width: 16),
+        if (!isDesktop)
+          IconButton.filledTonal(
+            tooltip: 'Sync devices',
+            onPressed: () => context.go('/${Routes.syncScreen}'),
+            icon: const Icon(Icons.cloud_sync_outlined),
+          ),
         if (isDesktop) ...[
-          const SizedBox(width: 24),
+          OutlinedButton.icon(
+            onPressed: () => context.go('/${Routes.syncScreen}'),
+            icon: const Icon(Icons.cloud_sync_outlined),
+            label: const Text('Sync devices'),
+          ),
+          const SizedBox(width: 10),
           FilledButton.icon(
             onPressed: () => context.go('/${Routes.saveResourceScreen}'),
             icon: const Icon(Icons.add_link),
@@ -177,7 +189,7 @@ class _ReturnSection extends StatelessWidget {
       child: isDesktop
           ? Row(
               children: [
-                Expanded(child: _ReturnCopy()),
+                const Expanded(child: _ReturnCopy()),
                 const SizedBox(width: 24),
                 OutlinedButton.icon(
                   onPressed: () => context.go('/${Routes.libraryScreen}'),
