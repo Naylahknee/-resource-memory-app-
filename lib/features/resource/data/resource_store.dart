@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:taskee/features/resource/data/cloud_sync_service.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 
 class ResourceStore {
@@ -28,9 +29,24 @@ class ResourceStore {
 
   static Future<void> save(Resource resource) async {
     await box.put(resource.id, resource.toMap());
+    await CloudSyncService.push(resource);
   }
 
   static Future<void> remove(String id) async {
     await box.delete(id);
+    await CloudSyncService.remove(id);
+  }
+
+  static Future<int> syncNow() async {
+    if (!CloudSyncService.isSignedIn) return getAll().length;
+
+    final local = getAll();
+    await CloudSyncService.pushAll(local);
+    final remote = await CloudSyncService.pullAll();
+
+    for (final resource in remote) {
+      await box.put(resource.id, resource.toMap());
+    }
+    return getAll().length;
   }
 }
