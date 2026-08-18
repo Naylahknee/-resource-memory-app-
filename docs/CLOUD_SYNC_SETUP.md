@@ -72,3 +72,4 @@ The current V1 sync screen supports email/password signup and login. If email co
 - Saving or deleting while signed in mirrors the change to Supabase.
 - `Sync now` uploads local resources, downloads cloud resources, and merges them by resource ID.
 - Signing into the same account on another device gives that device access to the same resource library.
+- Link/resource metadata syncs now. Dropped screenshot/file binaries still need the private Storage bucket pass before the actual file bytes can travel between devices.
