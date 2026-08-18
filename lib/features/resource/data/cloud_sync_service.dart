@@ -117,6 +117,35 @@ class CloudSyncService {
         .toList();
   }
 
+  static Future<String?> uploadAsset({
+    required String resourceId,
+    required String fileName,
+    required List<int> bytes,
+    String? contentType,
+  }) async {
+    if (!isSignedIn || !isConfigured || bytes.isEmpty) return null;
+    final response = await http.post(
+      _uri('/uploads/${Uri.encodeComponent(resourceId)}'),
+      headers: {
+        ..._authHeaders(),
+        'content-type': contentType ?? 'application/octet-stream',
+        'x-file-name': fileName,
+      },
+      body: bytes,
+    );
+    final data = _decode(response);
+    return data['assetPath'] as String?;
+  }
+
+  static Future<List<int>?> fetchAsset(String assetPath) async {
+    if (!isSignedIn || !isConfigured || assetPath.isEmpty) return null;
+    final response = await http.get(_uri(assetPath), headers: _authHeaders());
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response);
+    }
+    return response.bodyBytes;
+  }
+
   static Uri _uri(String path) {
     final base = _apiUrl.endsWith('/')
         ? _apiUrl.substring(0, _apiUrl.length - 1)
