@@ -60,7 +60,7 @@ flutter run \
   --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
-Do not use a Supabase secret/service-role key in the client application. Row Level Security protects each user's rows.
+The Supabase publishable key is designed for client applications. Do not use a secret or service-role key in the app. Row Level Security is what protects each user's rows.
 
 ## 5. Authentication behavior
 
