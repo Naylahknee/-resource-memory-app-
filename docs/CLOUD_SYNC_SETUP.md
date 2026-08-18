@@ -60,11 +60,11 @@ flutter run \
   --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
-The Supabase publishable key is designed for client applications. Do not use a secret or service-role key in the app. Row Level Security is what protects each user's rows.
+The publishable key is appropriate for client applications. Never use a secret or service-role key in the app. Row Level Security protects each user's rows.
 
 ## 5. Authentication behavior
 
-The current V1 sync screen supports email/password signup and login. If email confirmation is enabled in Supabase Auth, a new user must confirm their email before the first authenticated sync can complete.
+The V1 sync screen supports email/password signup and login. If email confirmation is enabled in Supabase Auth, a new user must confirm their email before the first authenticated sync can complete.
 
 ## Sync behavior
 
@@ -76,4 +76,4 @@ The current V1 sync screen supports email/password signup and login. If email co
 
 ## Asset sync follow-up
 
-Desktop drag-and-drop is implemented for files and screenshots. The resource record syncs across devices. The next storage pass should add a private Supabase Storage bucket so the original dropped file bytes, not just their resource record, can travel between devices too.
+Desktop drag-and-drop is implemented for files and screenshots. The resource record syncs across devices. A private Supabase Storage bucket is still needed if the original dropped file bytes themselves must travel between devices.
