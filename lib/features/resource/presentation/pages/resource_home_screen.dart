@@ -10,64 +10,202 @@ class ResourceHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/${Routes.saveResourceScreen}'),
-        child: const Icon(Icons.add),
-      ),
-      body: AppGradient(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Remember what helps.', style: AppTypography.h2),
-                const SizedBox(height: 8),
-                Text(
-                  'Save useful coding resources and bring them back when a project needs them.',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 900;
+        final isTablet = constraints.maxWidth >= 650;
+        final horizontalPadding = isDesktop ? 40.0 : (isTablet ? 28.0 : 20.0);
+
+        return Scaffold(
+          floatingActionButton: isDesktop
+              ? null
+              : FloatingActionButton(
+                  onPressed: () => context.go('/${Routes.saveResourceScreen}'),
+                  child: const Icon(Icons.add),
                 ),
-                const SizedBox(height: 28),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.kBorderColor,
-                    borderRadius: BorderRadius.circular(30),
+          body: AppGradient(
+            child: SafeArea(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: isDesktop ? 36 : 20,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1180),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Header(isDesktop: isDesktop),
+                        SizedBox(height: isDesktop ? 32 : 28),
+                        _Navigation(isDesktop: isDesktop),
+                        SizedBox(height: isDesktop ? 28 : 24),
+                        if (isDesktop)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: _ActionCard(
+                                  icon: Icons.auto_awesome,
+                                  title: 'What are you working on?',
+                                  body: 'Describe the project. We’ll surface things you already saved that may help.',
+                                  action: 'Find useful resources',
+                                  onTap: () => context.go('/${Routes.projectMatchScreen}'),
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: _ActionCard(
+                                  icon: Icons.add_link,
+                                  title: 'Save something useful',
+                                  body: 'Threads, YouTube, GitHub, websites, screenshots — save it with context.',
+                                  action: 'Save a resource',
+                                  onTap: () => context.go('/${Routes.saveResourceScreen}'),
+                                ),
+                              ),
+                            ],
+                          )
+                        else ...[
+                          _ActionCard(
+                            icon: Icons.auto_awesome,
+                            title: 'What are you working on?',
+                            body: 'Describe the project. We’ll surface things you already saved that may help.',
+                            action: 'Find useful resources',
+                            onTap: () => context.go('/${Routes.projectMatchScreen}'),
+                          ),
+                          const SizedBox(height: 16),
+                          _ActionCard(
+                            icon: Icons.add_link,
+                            title: 'Save something useful',
+                            body: 'Threads, YouTube, GitHub, websites, screenshots — save it with context.',
+                            action: 'Save a resource',
+                            onTap: () => context.go('/${Routes.saveResourceScreen}'),
+                          ),
+                        ],
+                        SizedBox(height: isDesktop ? 44 : 28),
+                        _ReturnSection(isDesktop: isDesktop),
+                        const SizedBox(height: 32),
+                        Text(
+                          'Save it once. Find it when it matters.',
+                          style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(child: _NavPill(label: 'NOW', selected: true, onTap: () {})),
-                      Expanded(child: _NavPill(label: 'LIBRARY', onTap: () => context.go('/${Routes.libraryScreen}'))),
-                    ],
-                  ),
                 ),
-                const SizedBox(height: 24),
-                _ActionCard(
-                  icon: Icons.auto_awesome,
-                  title: 'What are you working on?',
-                  body: 'Describe the project. We’ll surface things you already saved that may help.',
-                  action: 'Find useful resources',
-                  onTap: () => context.go('/${Routes.projectMatchScreen}'),
-                ),
-                const SizedBox(height: 16),
-                _ActionCard(
-                  icon: Icons.add_link,
-                  title: 'Save something useful',
-                  body: 'Threads, YouTube, GitHub, websites, screenshots — save it with context.',
-                  action: 'Save a resource',
-                  onTap: () => context.go('/${Routes.saveResourceScreen}'),
-                ),
-                const Spacer(),
-                Text(
-                  'Save it once. Find it when it matters.',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
-                ),
-              ],
+              ),
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  final bool isDesktop;
+  const _Header({required this.isDesktop});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Remember what helps.', style: AppTypography.h2),
+              const SizedBox(height: 8),
+              Text(
+                'Save useful coding resources and bring them back when a project needs them.',
+                style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
         ),
+        if (isDesktop) ...[
+          const SizedBox(width: 24),
+          FilledButton.icon(
+            onPressed: () => context.go('/${Routes.saveResourceScreen}'),
+            icon: const Icon(Icons.add_link),
+            label: const Text('Save resource'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Navigation extends StatelessWidget {
+  final bool isDesktop;
+  const _Navigation({required this.isDesktop});
+
+  @override
+  Widget build(BuildContext context) {
+    final nav = Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.kBorderColor,
+        borderRadius: BorderRadius.circular(30),
       ),
+      child: Row(
+        children: [
+          Expanded(child: _NavPill(label: 'NOW', selected: true, onTap: () {})),
+          Expanded(child: _NavPill(label: 'LIBRARY', onTap: () => context.go('/${Routes.libraryScreen}'))),
+        ],
+      ),
+    );
+    return isDesktop ? SizedBox(width: 420, child: nav) : nav;
+  }
+}
+
+class _ReturnSection extends StatelessWidget {
+  final bool isDesktop;
+  const _ReturnSection({required this.isDesktop});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isDesktop ? 24 : 20),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.kBorderColor),
+      ),
+      child: isDesktop
+          ? Row(
+              children: [
+                Expanded(child: _ReturnCopy()),
+                const SizedBox(width: 24),
+                OutlinedButton.icon(
+                  onPressed: () => context.go('/${Routes.libraryScreen}'),
+                  icon: const Icon(Icons.history),
+                  label: const Text('Browse saved resources'),
+                ),
+              ],
+            )
+          : const _ReturnCopy(),
+    );
+  }
+}
+
+class _ReturnCopy extends StatelessWidget {
+  const _ReturnCopy();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Useful again', style: AppTypography.h3),
+        const SizedBox(height: 6),
+        Text(
+          'As your library grows, this space will bring older resources back when they become relevant again.',
+          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
     );
   }
 }
