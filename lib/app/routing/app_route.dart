@@ -3,4 +3,5 @@ class Routes {
   static const saveResourceScreen = 'save-resource';
   static const libraryScreen = 'library';
   static const projectMatchScreen = 'project-match';
+  static const syncScreen = 'sync';
 }

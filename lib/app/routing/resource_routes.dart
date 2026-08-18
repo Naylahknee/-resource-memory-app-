@@ -6,6 +6,7 @@ import 'package:taskee/features/resource/presentation/pages/library_screen.dart'
 import 'package:taskee/features/resource/presentation/pages/resource_detail_screen.dart';
 import 'package:taskee/features/resource/presentation/pages/resource_home_screen.dart';
 import 'package:taskee/features/resource/presentation/pages/save_resource_screen.dart';
+import 'package:taskee/features/resource/presentation/pages/sync_screen.dart';
 
 final List<RouteBase> resourceRoutes = <RouteBase>[
   GoRoute(
@@ -32,6 +33,11 @@ final List<RouteBase> resourceRoutes = <RouteBase>[
         path: Routes.projectMatchScreen,
         builder: (BuildContext context, GoRouterState state) =>
             const ProjectMatchScreen(),
+      ),
+      GoRoute(
+        path: Routes.syncScreen,
+        builder: (BuildContext context, GoRouterState state) =>
+            const SyncScreen(),
       ),
     ],
   ),
