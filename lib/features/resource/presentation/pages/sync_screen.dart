@@ -22,7 +22,7 @@ class _SyncScreenState extends State<SyncScreen> {
     if (_busy) return;
     final email = _email.text.trim();
     final password = _password.text;
-    if (email.isEmpty || password.length < 6) return;
+    if (email.isEmpty || password.length < 8) return;
 
     setState(() => _busy = true);
     try {
@@ -88,37 +88,33 @@ class _SyncScreenState extends State<SyncScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.arrow_back),
-                        ),
-                        const SizedBox(width: 4),
-                        Text('Sync devices', style: AppTypography.h3),
-                      ],
-                    ),
+                    Row(children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back),
+                      ),
+                      const SizedBox(width: 4),
+                      Text('Sync devices', style: AppTypography.h3),
+                    ]),
                     const SizedBox(height: 28),
                     Text('Desktop + mobile', style: AppTypography.h2),
                     const SizedBox(height: 8),
                     Text(
-                      'Use the same sync account on each device. Saved resources stay local for speed and are mirrored to the cloud when sync is connected.',
-                      style: AppTypography.bodyMd.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                      'Use the same Resource Memory account on each device. Hive stays local for speed; Neon is the canonical synced library behind the Resource API.',
+                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
                     if (!configured)
-                      _StatusCard(
+                      const _StatusCard(
                         icon: Icons.cloud_off_outlined,
                         title: 'Cloud sync needs configuration',
-                        body: 'The app is ready for sync, but the deployment still needs its Supabase URL and publishable key.',
+                        body: 'The app needs RESOURCE_API_URL for the Cloudflare Worker that connects to Neon.',
                       )
                     else if (signedIn) ...[
                       _StatusCard(
                         icon: Icons.cloud_done_outlined,
                         title: 'Sync is connected',
-                        body: CloudSyncService.currentUser?.email ?? 'Signed in',
+                        body: CloudSyncService.currentEmail ?? 'Signed in',
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -152,7 +148,7 @@ class _SyncScreenState extends State<SyncScreen> {
                         obscureText: true,
                         decoration: const InputDecoration(
                           labelText: 'Password',
-                          helperText: 'At least 6 characters',
+                          helperText: 'At least 8 characters',
                           prefixIcon: Icon(Icons.lock_outline),
                         ),
                       ),
@@ -176,9 +172,7 @@ class _SyncScreenState extends State<SyncScreen> {
                         child: TextButton(
                           onPressed: _busy
                               ? null
-                              : () => setState(
-                                    () => _createAccount = !_createAccount,
-                                  ),
+                              : () => setState(() => _createAccount = !_createAccount),
                           child: Text(
                             _createAccount
                                 ? 'I already have a sync account'
@@ -203,11 +197,7 @@ class _StatusCard extends StatelessWidget {
   final String title;
   final String body;
 
-  const _StatusCard({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
+  const _StatusCard({required this.icon, required this.title, required this.body});
 
   @override
   Widget build(BuildContext context) {
@@ -219,30 +209,23 @@ class _StatusCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.kBorderColor),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: AppColors.accentMuted,
-            child: Icon(icon, color: AppColors.accent),
+      child: Row(children: [
+        CircleAvatar(
+          backgroundColor: AppColors.accentMuted,
+          child: Icon(icon, color: AppColors.accent),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: AppTypography.h3),
+              const SizedBox(height: 4),
+              Text(body, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTypography.h3),
-                const SizedBox(height: 4),
-                Text(
-                  body,
-                  style: AppTypography.bodyMd.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 }
