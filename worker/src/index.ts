@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless';
 interface Env {
   DATABASE_URL: string;
   RESOURCE_FILES: R2Bucket;
+  OPENAI_API_KEY?: string;
 }
 
 const encoder = new TextEncoder();
@@ -25,6 +26,15 @@ function toHex(bytes: ArrayBuffer): string {
 
 function fromHex(value: string): Uint8Array {
   return new Uint8Array(value.match(/.{1,2}/g)?.map((part) => parseInt(part, 16)) ?? []);
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
+  }
+  return btoa(binary);
 }
 
 async function hashToken(token: string): Promise<string> {
@@ -83,6 +93,115 @@ async function requireUser(request: Request, sql: ReturnType<typeof neon>): Prom
   return rows[0].user_id as string;
 }
 
+async function analyzeImage(request: Request, env: Env): Promise<Response> {
+  if (!env.OPENAI_API_KEY) {
+    throw new ResponseError(503, 'Image intelligence is not configured.');
+  }
+
+  const contentType = (request.headers.get('content-type') ?? 'image/png').split(';')[0].trim();
+  if (!contentType.startsWith('image/')) {
+    throw new ResponseError(400, 'An image is required.');
+  }
+
+  const buffer = await request.arrayBuffer();
+  if (!buffer.byteLength) throw new ResponseError(400, 'Image was empty.');
+  if (buffer.byteLength > 10 * 1024 * 1024) {
+    throw new ResponseError(413, 'Image is too large. Keep it under 10 MB.');
+  }
+
+  const dataUrl = `data:${contentType};base64,${bytesToBase64(new Uint8Array(buffer))}`;
+  const openAiResponse = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-5-mini',
+      input: [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text: 'You are the image-understanding layer for Resource Memory, an app that saves coding and learning resources. Inspect screenshots carefully. Identify the actual resource, tool, repository, tutorial, creator, URL/domain, technologies, and practical use case shown in the image. If a visible domain lacks a scheme, return it as https://domain. Do not invent a URL that is not visible or strongly implied by an unmistakable product domain. Keep summaries concise and retrieval-oriented.',
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: 'Analyze this saved screenshot and return the resource metadata Future Me should be able to search and resurface later.',
+            },
+            {
+              type: 'input_image',
+              image_url: dataUrl,
+              detail: 'high',
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'resource_image_analysis',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'title',
+              'url',
+              'creator',
+              'platform',
+              'summary',
+              'whyUseful',
+              'useWhen',
+              'topics',
+              'technologies',
+              'resourceType',
+            ],
+            properties: {
+              title: { type: 'string' },
+              url: { type: ['string', 'null'] },
+              creator: { type: ['string', 'null'] },
+              platform: { type: ['string', 'null'] },
+              summary: { type: 'string' },
+              whyUseful: { type: 'string' },
+              useWhen: { type: 'string' },
+              topics: { type: 'array', items: { type: 'string' } },
+              technologies: { type: 'array', items: { type: 'string' } },
+              resourceType: {
+                type: 'string',
+                enum: ['website', 'video', 'github', 'screenshot', 'article', 'tool', 'tutorial', 'code', 'other'],
+              },
+            },
+          },
+        },
+      },
+    }),
+  });
+
+  const payload = (await openAiResponse.json()) as Record<string, any>;
+  if (!openAiResponse.ok) {
+    console.error('OpenAI image analysis failed', payload);
+    throw new ResponseError(502, 'Could not understand this image right now.');
+  }
+
+  const outputText = payload.output_text;
+  if (typeof outputText !== 'string' || !outputText.trim()) {
+    throw new ResponseError(502, 'Image analysis returned no result.');
+  }
+
+  try {
+    return json(JSON.parse(outputText));
+  } catch {
+    throw new ResponseError(502, 'Image analysis returned an invalid result.');
+  }
+}
+
 class ResponseError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -100,7 +219,11 @@ export default {
 
     try {
       if (request.method === 'GET' && path === '/health') {
-        return json({ ok: true, service: 'resource-memory-api' });
+        return json({
+          ok: true,
+          service: 'resource-memory-api',
+          imageIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
+        });
       }
 
       if (request.method === 'POST' && path === '/auth/register') {
@@ -151,6 +274,11 @@ export default {
           await sql`delete from sessions where token_hash = ${tokenHash}`;
         }
         return json({ ok: true });
+      }
+
+      if (request.method === 'POST' && path === '/analyze-image') {
+        await requireUser(request, sql);
+        return analyzeImage(request, env);
       }
 
       if (request.method === 'GET' && path === '/resources') {
