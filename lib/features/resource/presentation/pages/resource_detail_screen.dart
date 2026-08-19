@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/resource/data/cloud_sync_service.dart';
+import 'package:taskee/features/resource/data/resource_link_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 import 'package:taskee/features/widget/app_gradient.dart';
@@ -19,6 +20,7 @@ class ResourceDetailScreen extends StatefulWidget {
 
 class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   late final TextEditingController _title;
+  late final TextEditingController _url;
   late final TextEditingController _creator;
   late final TextEditingController _summary;
   late final TextEditingController _whyUseful;
@@ -36,6 +38,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     _resource = ResourceStore.getById(widget.resourceId);
     final resource = _resource;
     _title = TextEditingController(text: resource?.title ?? '');
+    _url = TextEditingController(text: resource?.url ?? '');
     _creator = TextEditingController(text: resource?.creator ?? '');
     _summary = TextEditingController(text: resource?.summary ?? '');
     _whyUseful = TextEditingController(text: resource?.whyUseful ?? '');
@@ -76,8 +79,13 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     final resource = _resource;
     if (resource == null || _saving) return;
     setState(() => _saving = true);
+    final rawUrl = _url.text.trim();
+    final normalizedUrl = rawUrl.isEmpty
+        ? null
+        : ResourceLinkService.normalize(rawUrl)?.toString() ?? rawUrl;
     final updated = resource.copyWith(
       title: _title.text.trim().isEmpty ? resource.title : _title.text.trim(),
+      url: normalizedUrl,
       creator: _creator.text.trim(),
       summary: _summary.text.trim(),
       whyUseful: _whyUseful.text.trim(),
@@ -89,6 +97,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     if (!mounted) return;
     setState(() {
       _resource = updated;
+      _url.text = updated.url ?? '';
       _saving = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -99,6 +108,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   @override
   void dispose() {
     _title.dispose();
+    _url.dispose();
     _creator.dispose();
     _summary.dispose();
     _whyUseful.dispose();
@@ -114,6 +124,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     if (resource == null) {
       return const Scaffold(body: Center(child: Text('Resource not found.')));
     }
+    final hasLink = ResourceLinkService.normalize(resource.url) != null;
     return Scaffold(
       body: AppGradient(
         child: SafeArea(
@@ -131,7 +142,13 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),
-                      Text('Resource details', style: AppTypography.h3),
+                      Expanded(child: Text('Resource details', style: AppTypography.h3)),
+                      if (hasLink)
+                        FilledButton.tonalIcon(
+                          onPressed: () => ResourceLinkService.open(context, resource.url),
+                          icon: const Icon(Icons.open_in_new),
+                          label: const Text('Open link'),
+                        ),
                     ]),
                     if (resource.assetPath != null) ...[
                       const SizedBox(height: 20),
@@ -144,6 +161,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                     ],
                     const SizedBox(height: 20),
                     _field('Title', _title),
+                    _linkField(context),
                     _field('Creator', _creator),
                     _field('Summary', _summary, lines: 4),
                     _field('Why this is useful', _whyUseful, lines: 3),
@@ -165,6 +183,43 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _linkField(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Link', style: AppTypography.labelLg),
+          const SizedBox(height: 7),
+          TextField(
+            controller: _url,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              hintText: 'https://example.com',
+              filled: true,
+              fillColor: AppColors.surface,
+              suffixIcon: IconButton(
+                tooltip: 'Open link',
+                onPressed: ResourceLinkService.normalize(_url.text) == null
+                    ? null
+                    : () => ResourceLinkService.open(context, _url.text),
+                icon: const Icon(Icons.open_in_new),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: AppColors.kBorderColor),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: AppColors.kBorderColor),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
