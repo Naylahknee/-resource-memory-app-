@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
+import 'package:taskee/features/resource/data/resource_link_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 import 'package:taskee/features/widget/app_gradient.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -107,17 +107,8 @@ class _ResourceCard extends StatelessWidget {
   const _ResourceCard({required this.resource});
   final Resource resource;
 
-  Future<void> _open(BuildContext context) async {
-    final raw = resource.url;
-    if (raw == null) return;
-    final uri = Uri.tryParse(raw);
-    if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open this link.')),
-      );
-    }
-  }
+  Future<void> _open(BuildContext context) =>
+      ResourceLinkService.open(context, resource.url);
 
   Future<void> _delete(BuildContext context) async {
     await ResourceStore.remove(resource.id);
@@ -129,9 +120,10 @@ class _ResourceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasLink = ResourceLinkService.normalize(resource.url) != null;
     return InkWell(
       borderRadius: BorderRadius.circular(22),
-      onTap: resource.url == null ? null : () => _open(context),
+      onTap: hasLink ? () => _open(context) : null,
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -153,13 +145,19 @@ class _ResourceCard extends StatelessWidget {
                 children: [
                   Row(children: [
                     Expanded(child: Text(resource.title, style: AppTypography.h3)),
+                    if (hasLink)
+                      IconButton(
+                        tooltip: 'Open link',
+                        onPressed: () => _open(context),
+                        icon: const Icon(Icons.open_in_new, size: 19),
+                      ),
                     PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'delete') _delete(context);
                         if (value == 'open') _open(context);
                       },
                       itemBuilder: (_) => [
-                        if (resource.url != null)
+                        if (hasLink)
                           const PopupMenuItem(value: 'open', child: Text('Open link')),
                         const PopupMenuItem(value: 'delete', child: Text('Delete')),
                       ],
@@ -170,6 +168,21 @@ class _ResourceCard extends StatelessWidget {
                     Text(
                       [resource.creator, resource.platform].whereType<String>().join(' · '),
                       style: AppTypography.labelMd.copyWith(color: AppColors.accent),
+                    ),
+                  ],
+                  if (hasLink) ...[
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () => _open(context),
+                      child: Text(
+                        ResourceLinkService.display(resource.url!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.accent,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 5),
