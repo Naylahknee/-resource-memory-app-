@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
+import 'package:taskee/features/resource/data/resource_link_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 import 'package:taskee/features/widget/app_gradient.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class ProjectMatchScreen extends StatefulWidget {
   const ProjectMatchScreen({super.key});
@@ -47,12 +47,8 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
     });
   }
 
-  Future<void> _open(Resource resource) async {
-    final raw = resource.url;
-    if (raw == null) return;
-    final uri = Uri.tryParse(raw);
-    if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
+  Future<void> _open(Resource resource) =>
+      ResourceLinkService.open(context, resource.url);
 
   @override
   void dispose() {
@@ -138,8 +134,9 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                     itemBuilder: (context, index) {
                       final match = _matches[index];
                       final resource = match.resource;
+                      final hasLink = ResourceLinkService.normalize(resource.url) != null;
                       return InkWell(
-                        onTap: resource.url == null ? null : () => _open(resource),
+                        onTap: hasLink ? () => _open(resource) : null,
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
                           padding: const EdgeInsets.all(16),
@@ -153,9 +150,25 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                             children: [
                               Row(children: [
                                 Expanded(child: Text(resource.title, style: AppTypography.h3)),
-                                if (resource.url != null)
-                                  const Icon(Icons.open_in_new, size: 18, color: AppColors.textMuted),
+                                if (hasLink)
+                                  IconButton(
+                                    tooltip: 'Open link',
+                                    onPressed: () => _open(resource),
+                                    icon: const Icon(Icons.open_in_new, size: 18),
+                                  ),
                               ]),
+                              if (hasLink) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  ResourceLinkService.display(resource.url!),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.bodySm.copyWith(
+                                    color: AppColors.accent,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 5),
                               Text(
                                 resource.summary,
