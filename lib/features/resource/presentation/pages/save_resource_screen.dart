@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/resource/data/cloud_sync_service.dart';
@@ -21,6 +25,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _saving = false;
   bool _dragging = false;
+  bool _pasting = false;
 
   Future<void> _saveUrl() async {
     final url = _urlController.text.trim();
@@ -77,6 +82,81 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
     );
   }
 
+  Future<void> _pasteImageFromClipboard() async {
+    if (_pasting) return;
+    final clipboard = SystemClipboard.instance;
+    if (clipboard == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image paste is not available in this browser.')),
+      );
+      return;
+    }
+
+    setState(() => _pasting = true);
+    try {
+      final reader = await clipboard.read();
+      final candidates = <(FileFormat, String, String)>[
+        (Formats.png, 'png', 'image/png'),
+        (Formats.jpeg, 'jpg', 'image/jpeg'),
+        (Formats.webp, 'webp', 'image/webp'),
+        (Formats.gif, 'gif', 'image/gif'),
+      ];
+
+      (FileFormat, String, String)? selected;
+      for (final candidate in candidates) {
+        if (reader.canProvide(candidate.$1)) {
+          selected = candidate;
+          break;
+        }
+      }
+
+      if (selected == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('There is no image in the clipboard.')),
+        );
+        return;
+      }
+
+      final completer = Completer<List<int>>();
+      reader.getFile(
+        selected.$1,
+        (file) async {
+          try {
+            final bytes = await file.readAll();
+            if (!completer.isCompleted) completer.complete(bytes);
+          } catch (error, stackTrace) {
+            if (!completer.isCompleted) completer.completeError(error, stackTrace);
+          }
+        },
+        onError: (error) {
+          if (!completer.isCompleted) completer.completeError(error);
+        },
+      );
+
+      final bytes = await completer.future;
+      if (bytes.isEmpty) throw StateError('Clipboard image was empty.');
+
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      await _saveFileReference(
+        name: 'clipboard-image-$stamp.${selected.$2}',
+        path: '',
+        mimeType: selected.$3,
+        bytes: bytes,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not paste that image. Your browser may need clipboard permission.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _pasting = false);
+    }
+  }
+
   Future<void> _saveDroppedFiles(DropDoneDetails details) async {
     if (details.files.isEmpty) return;
     setState(() => _dragging = false);
@@ -124,7 +204,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
       useWhen: 'Resurface when a project overlaps with this file or visual reference.',
       thumbnail: isImage && path.isNotEmpty ? path : null,
       type: isImage ? ResourceType.screenshot : ResourceType.other,
-      topics: [if (isImage) 'screenshot', 'desktop drop'],
+      topics: [if (isImage) 'screenshot', 'desktop capture'],
       savedAt: now,
     );
 
@@ -162,141 +242,162 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AppGradient(
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 800;
-              return SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isDesktop ? 40 : 20,
-                  vertical: 20,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.arrow_back),
-                          ),
-                          const SizedBox(width: 4),
-                          Text('Save something useful', style: AppTypography.h3),
-                        ]),
-                        const SizedBox(height: 24),
-                        Text('Paste a link', style: AppTypography.h2),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Threads, YouTube, GitHub, websites, tutorials — anything Future You should remember.',
-                          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 22),
-                        TextField(
-                          controller: _urlController,
-                          keyboardType: TextInputType.url,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _saveUrl(),
-                          decoration: InputDecoration(
-                            hintText: 'https://...',
-                            filled: true,
-                            fillColor: AppColors.surface,
-                            prefixIcon: const Icon(Icons.link),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide(color: AppColors.kBorderColor),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide(color: AppColors.kBorderColor),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _saving ? null : _saveUrl,
-                            icon: _saving
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.auto_awesome),
-                            label: Text(_saving ? 'Understanding…' : 'Understand and save'),
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        Row(children: [
-                          Expanded(child: Divider(color: AppColors.kBorderColor)),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('OR'),
-                          ),
-                          Expanded(child: Divider(color: AppColors.kBorderColor)),
-                        ]),
-                        const SizedBox(height: 28),
-                        DropTarget(
-                          onDragEntered: (_) => setState(() => _dragging = true),
-                          onDragExited: (_) => setState(() => _dragging = false),
-                          onDragDone: _saveDroppedFiles,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(24),
-                            onTap: _saveScreenshot,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              width: double.infinity,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 22,
-                                vertical: isDesktop ? 40 : 22,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _dragging ? AppColors.accentMuted : AppColors.surface,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: _dragging ? AppColors.accent : AppColors.kBorderColor,
-                                  width: _dragging ? 2 : 1,
-                                ),
-                              ),
-                              child: Column(children: [
-                                CircleAvatar(
-                                  backgroundColor: AppColors.accentMuted,
-                                  child: Icon(
-                                    _dragging ? Icons.file_download_outlined : Icons.upload_file_outlined,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _dragging
-                                      ? 'Drop it here'
-                                      : (isDesktop
-                                          ? 'Drag files or screenshots here'
-                                          : 'Upload a screenshot'),
-                                  style: AppTypography.h3,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  isDesktop
-                                      ? 'Drop references from your desktop, or click to choose a screenshot.'
-                                      : 'Save visual references alongside your links.',
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
-                                ),
-                              ]),
-                            ),
-                          ),
-                        ),
-                      ],
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true): _pasteImageFromClipboard,
+        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): _pasteImageFromClipboard,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          body: AppGradient(
+            child: SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isDesktop = constraints.maxWidth >= 800;
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 40 : 20,
+                      vertical: 20,
                     ),
-                  ),
-                ),
-              );
-            },
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 760),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                icon: const Icon(Icons.arrow_back),
+                              ),
+                              const SizedBox(width: 4),
+                              Text('Save something useful', style: AppTypography.h3),
+                            ]),
+                            const SizedBox(height: 24),
+                            Text('Paste a link', style: AppTypography.h2),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Threads, YouTube, GitHub, websites, tutorials — anything Future You should remember.',
+                              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 22),
+                            TextField(
+                              controller: _urlController,
+                              keyboardType: TextInputType.url,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _saveUrl(),
+                              decoration: InputDecoration(
+                                hintText: 'https://...',
+                                filled: true,
+                                fillColor: AppColors.surface,
+                                prefixIcon: const Icon(Icons.link),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide(color: AppColors.kBorderColor),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide(color: AppColors.kBorderColor),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: _saving ? null : _saveUrl,
+                                icon: _saving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.auto_awesome),
+                                label: Text(_saving ? 'Understanding…' : 'Understand and save'),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            Row(children: [
+                              Expanded(child: Divider(color: AppColors.kBorderColor)),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text('OR'),
+                              ),
+                              Expanded(child: Divider(color: AppColors.kBorderColor)),
+                            ]),
+                            const SizedBox(height: 28),
+                            DropTarget(
+                              onDragEntered: (_) => setState(() => _dragging = true),
+                              onDragExited: (_) => setState(() => _dragging = false),
+                              onDragDone: _saveDroppedFiles,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onTap: _saveScreenshot,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 160),
+                                  width: double.infinity,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 22,
+                                    vertical: isDesktop ? 40 : 22,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _dragging ? AppColors.accentMuted : AppColors.surface,
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: _dragging ? AppColors.accent : AppColors.kBorderColor,
+                                      width: _dragging ? 2 : 1,
+                                    ),
+                                  ),
+                                  child: Column(children: [
+                                    CircleAvatar(
+                                      backgroundColor: AppColors.accentMuted,
+                                      child: Icon(
+                                        _dragging ? Icons.file_download_outlined : Icons.content_paste_go_outlined,
+                                        color: AppColors.accent,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      _dragging
+                                          ? 'Drop it here'
+                                          : (isDesktop
+                                              ? 'Drag, upload, or paste an image'
+                                              : 'Upload or paste a screenshot'),
+                                      style: AppTypography.h3,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      isDesktop
+                                          ? 'Drop files here, click to choose an image, or copy an image and press Ctrl+V / Cmd+V.'
+                                          : 'Choose an image or use Paste image to capture your clipboard.',
+                                      textAlign: TextAlign.center,
+                                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    OutlinedButton.icon(
+                                      onPressed: _pasting ? null : _pasteImageFromClipboard,
+                                      icon: _pasting
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            )
+                                          : const Icon(Icons.content_paste),
+                                      label: Text(_pasting ? 'Reading clipboard…' : 'Paste image'),
+                                    ),
+                                  ]),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),
