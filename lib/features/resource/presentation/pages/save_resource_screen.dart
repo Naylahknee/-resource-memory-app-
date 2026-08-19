@@ -9,6 +9,7 @@ import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/resource/data/cloud_sync_service.dart';
 import 'package:taskee/features/resource/data/resource_enrichment_service.dart';
+import 'package:taskee/features/resource/data/resource_link_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 import 'package:taskee/features/widget/app_gradient.dart';
@@ -26,6 +27,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
   bool _saving = false;
   bool _dragging = false;
   bool _pasting = false;
+  bool _understandingImage = false;
 
   Future<void> _saveUrl() async {
     final url = _urlController.text.trim();
@@ -192,19 +194,48 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
         RegExp(r'\.(png|jpe?g|gif|webp|heic)$', caseSensitive: false)
             .hasMatch(cleanName);
 
+    ImageResourceAnalysis? analysis;
+    if (isImage &&
+        bytes.isNotEmpty &&
+        CloudSyncService.isConfigured &&
+        CloudSyncService.isSignedIn) {
+      if (mounted) setState(() => _understandingImage = true);
+      try {
+        analysis = await CloudSyncService.analyzeImage(
+          bytes: bytes,
+          contentType: mimeType ?? 'image/png',
+        );
+      } catch (_) {
+        // Saving still succeeds with the local fallback metadata.
+      } finally {
+        if (mounted) setState(() => _understandingImage = false);
+      }
+    }
+
+    final extractedUrl = analysis?.url == null
+        ? null
+        : ResourceLinkService.normalize(analysis!.url)?.toString();
+
     var resource = Resource(
       id: now.microsecondsSinceEpoch.toString(),
-      title: cleanName,
-      url: path.isEmpty ? null : path,
-      platform: isImage ? 'Screenshot' : 'Desktop file',
-      summary: isImage
-          ? 'A visual reference saved from your desktop.'
-          : 'A file saved from your desktop as a project reference.',
-      whyUseful: 'Kept because you chose it as something Future You may need again.',
-      useWhen: 'Resurface when a project overlaps with this file or visual reference.',
+      title: analysis?.title ?? cleanName,
+      url: isImage ? extractedUrl : (path.isEmpty ? null : path),
+      creator: analysis?.creator,
+      platform: analysis?.platform ?? (isImage ? 'Screenshot' : 'Desktop file'),
+      summary: analysis?.summary ??
+          (isImage
+              ? 'A visual reference saved from your desktop.'
+              : 'A file saved from your desktop as a project reference.'),
+      whyUseful: analysis?.whyUseful ??
+          'Kept because you chose it as something Future You may need again.',
+      useWhen: analysis?.useWhen ??
+          'Resurface when a project overlaps with this file or visual reference.',
       thumbnail: isImage && path.isNotEmpty ? path : null,
-      type: isImage ? ResourceType.screenshot : ResourceType.other,
-      topics: [if (isImage) 'screenshot', 'desktop capture'],
+      type: analysis == null
+          ? (isImage ? ResourceType.screenshot : ResourceType.other)
+          : _resourceTypeFromName(analysis.resourceType),
+      topics: analysis?.topics ?? [if (isImage) 'screenshot', 'desktop capture'],
+      technologies: analysis?.technologies ?? const [],
       savedAt: now,
     );
 
@@ -229,9 +260,22 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
 
     if (showConfirmation && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved $cleanName')),
+        SnackBar(
+          content: Text(
+            analysis == null
+                ? 'Saved ${resource.title}'
+                : 'Understood and saved ${resource.title}',
+          ),
+        ),
       );
     }
+  }
+
+  ResourceType _resourceTypeFromName(String value) {
+    return ResourceType.values.firstWhere(
+      (type) => type.name == value,
+      orElse: () => ResourceType.screenshot,
+    );
   }
 
   @override
@@ -333,7 +377,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                               onDragDone: _saveDroppedFiles,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(24),
-                                onTap: _saveScreenshot,
+                                onTap: _understandingImage ? null : _saveScreenshot,
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 160),
                                   width: double.infinity,
@@ -352,31 +396,44 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                                   child: Column(children: [
                                     CircleAvatar(
                                       backgroundColor: AppColors.accentMuted,
-                                      child: Icon(
-                                        _dragging ? Icons.file_download_outlined : Icons.content_paste_go_outlined,
-                                        color: AppColors.accent,
-                                      ),
+                                      child: _understandingImage
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(10),
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            )
+                                          : Icon(
+                                              _dragging
+                                                  ? Icons.file_download_outlined
+                                                  : Icons.content_paste_go_outlined,
+                                              color: AppColors.accent,
+                                            ),
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
-                                      _dragging
-                                          ? 'Drop it here'
-                                          : (isDesktop
-                                              ? 'Drag, upload, or paste an image'
-                                              : 'Upload or paste a screenshot'),
+                                      _understandingImage
+                                          ? 'Understanding this image…'
+                                          : _dragging
+                                              ? 'Drop it here'
+                                              : (isDesktop
+                                                  ? 'Drag, upload, or paste an image'
+                                                  : 'Upload or paste a screenshot'),
                                       style: AppTypography.h3,
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      isDesktop
-                                          ? 'Drop files here, click to choose an image, or copy an image and press Ctrl+V / Cmd+V.'
-                                          : 'Choose an image or use Paste image to capture your clipboard.',
+                                      _understandingImage
+                                          ? 'Looking for the resource, URL, creator, technologies, and when it will be useful again.'
+                                          : (isDesktop
+                                              ? 'Drop files here, click to choose an image, or copy an image and press Ctrl+V / Cmd+V.'
+                                              : 'Choose an image or use Paste image to capture your clipboard.'),
                                       textAlign: TextAlign.center,
                                       style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
                                     ),
                                     const SizedBox(height: 16),
                                     OutlinedButton.icon(
-                                      onPressed: _pasting ? null : _pasteImageFromClipboard,
+                                      onPressed: _pasting || _understandingImage
+                                          ? null
+                                          : _pasteImageFromClipboard,
                                       icon: _pasting
                                           ? const SizedBox(
                                               width: 16,
@@ -386,6 +443,17 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                                           : const Icon(Icons.content_paste),
                                       label: Text(_pasting ? 'Reading clipboard…' : 'Paste image'),
                                     ),
+                                    if (CloudSyncService.isConfigured &&
+                                        !CloudSyncService.isSignedIn) ...[
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'Connect Sync Devices to automatically understand screenshots.',
+                                        textAlign: TextAlign.center,
+                                        style: AppTypography.bodySm.copyWith(
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
                                   ]),
                                 ),
                               ),
