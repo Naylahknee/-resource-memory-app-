@@ -53,6 +53,58 @@ class ImageResourceAnalysis {
   }
 }
 
+class AudioResourceAnalysis {
+  const AudioResourceAnalysis({
+    required this.title,
+    required this.summary,
+    required this.whyUseful,
+    required this.useWhen,
+    required this.resourceType,
+    required this.transcript,
+    this.url,
+    this.creator,
+    this.platform,
+    this.topics = const [],
+    this.technologies = const [],
+  });
+
+  final String title;
+  final String? url;
+  final String? creator;
+  final String? platform;
+  final String summary;
+  final String whyUseful;
+  final String useWhen;
+  final String resourceType;
+  final String transcript;
+  final List<String> topics;
+  final List<String> technologies;
+
+  factory AudioResourceAnalysis.fromMap(Map<String, dynamic> map) {
+    return AudioResourceAnalysis(
+      title: (map['title'] as String?)?.trim().isNotEmpty == true
+          ? (map['title'] as String).trim()
+          : 'Voice memory',
+      url: (map['url'] as String?)?.trim().isNotEmpty == true
+          ? (map['url'] as String).trim()
+          : null,
+      creator: (map['creator'] as String?)?.trim().isNotEmpty == true
+          ? (map['creator'] as String).trim()
+          : null,
+      platform: (map['platform'] as String?)?.trim().isNotEmpty == true
+          ? (map['platform'] as String).trim()
+          : 'Voice note',
+      summary: (map['summary'] as String?)?.trim() ?? '',
+      whyUseful: (map['whyUseful'] as String?)?.trim() ?? '',
+      useWhen: (map['useWhen'] as String?)?.trim() ?? '',
+      resourceType: (map['resourceType'] as String?)?.trim() ?? 'other',
+      transcript: (map['transcript'] as String?)?.trim() ?? '',
+      topics: List<String>.from(map['topics'] as List? ?? const []),
+      technologies: List<String>.from(map['technologies'] as List? ?? const []),
+    );
+  }
+}
+
 class CloudSyncService {
   static const _apiUrl = String.fromEnvironment('RESOURCE_API_URL');
   static const _tokenKey = 'resource_memory_sync_token';
@@ -142,6 +194,25 @@ class CloudSyncService {
         .timeout(const Duration(seconds: 45));
     final data = _decode(response);
     return ImageResourceAnalysis.fromMap(data);
+  }
+
+  static Future<AudioResourceAnalysis?> analyzeAudio({
+    required List<int> bytes,
+    required String contentType,
+  }) async {
+    if (!isConfigured || !isSignedIn || bytes.isEmpty) return null;
+    final response = await http
+        .post(
+          _uri('/analyze-audio'),
+          headers: {
+            ..._authHeaders(),
+            'content-type': contentType,
+          },
+          body: bytes,
+        )
+        .timeout(const Duration(seconds: 90));
+    final data = _decode(response);
+    return AudioResourceAnalysis.fromMap(data);
   }
 
   static Future<void> push(Resource resource) async {
