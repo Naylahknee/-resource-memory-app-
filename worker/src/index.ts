@@ -202,6 +202,139 @@ async function analyzeImage(request: Request, env: Env): Promise<Response> {
   }
 }
 
+function audioExtension(contentType: string): string {
+  if (contentType.includes('wav')) return 'wav';
+  if (contentType.includes('mpeg')) return 'mp3';
+  if (contentType.includes('mp4') || contentType.includes('m4a')) return 'm4a';
+  if (contentType.includes('ogg') || contentType.includes('opus')) return 'ogg';
+  if (contentType.includes('webm')) return 'webm';
+  return 'wav';
+}
+
+async function analyzeAudio(request: Request, env: Env): Promise<Response> {
+  if (!env.OPENAI_API_KEY) {
+    throw new ResponseError(503, 'Voice intelligence is not configured.');
+  }
+
+  const contentType = (request.headers.get('content-type') ?? 'audio/wav').split(';')[0].trim();
+  if (!contentType.startsWith('audio/')) {
+    throw new ResponseError(400, 'An audio recording is required.');
+  }
+
+  const buffer = await request.arrayBuffer();
+  if (!buffer.byteLength) throw new ResponseError(400, 'Audio was empty.');
+  if (buffer.byteLength > 25 * 1024 * 1024) {
+    throw new ResponseError(413, 'Audio is too large. Keep voice notes under 25 MB.');
+  }
+
+  const form = new FormData();
+  form.append('model', 'gpt-transcribe');
+  form.append(
+    'file',
+    new File([buffer], `voice-note.${audioExtension(contentType)}`, { type: contentType }),
+  );
+
+  const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.OPENAI_API_KEY}` },
+    body: form,
+  });
+  const transcriptionPayload = (await transcriptionResponse.json()) as Record<string, any>;
+  if (!transcriptionResponse.ok) {
+    console.error('OpenAI transcription failed', transcriptionPayload);
+    throw new ResponseError(502, 'Could not transcribe this voice note right now.');
+  }
+
+  const transcript = String(transcriptionPayload.text ?? '').trim();
+  if (!transcript) throw new ResponseError(502, 'Voice note produced no transcript.');
+
+  const metadataResponse = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-5-mini',
+      input: [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text: 'You are the voice-memory layer for Resource Memory. Convert a spoken note into concise retrieval metadata. Preserve what the speaker actually said. Identify tools, sites, repositories, technologies, people, project context, and any spoken URL. Do not invent URLs or facts. The goal is to make this memory searchable and useful later.',
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `Turn this voice note into a saved resource. Transcript:\n\n${transcript}`,
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'resource_voice_analysis',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'title',
+              'url',
+              'creator',
+              'platform',
+              'summary',
+              'whyUseful',
+              'useWhen',
+              'topics',
+              'technologies',
+              'resourceType',
+            ],
+            properties: {
+              title: { type: 'string' },
+              url: { type: ['string', 'null'] },
+              creator: { type: ['string', 'null'] },
+              platform: { type: ['string', 'null'] },
+              summary: { type: 'string' },
+              whyUseful: { type: 'string' },
+              useWhen: { type: 'string' },
+              topics: { type: 'array', items: { type: 'string' } },
+              technologies: { type: 'array', items: { type: 'string' } },
+              resourceType: {
+                type: 'string',
+                enum: ['website', 'video', 'github', 'article', 'tool', 'tutorial', 'code', 'other'],
+              },
+            },
+          },
+        },
+      },
+    }),
+  });
+
+  const metadataPayload = (await metadataResponse.json()) as Record<string, any>;
+  if (!metadataResponse.ok) {
+    console.error('OpenAI voice metadata failed', metadataPayload);
+    throw new ResponseError(502, 'Could not understand this voice note right now.');
+  }
+
+  const outputText = metadataPayload.output_text;
+  if (typeof outputText !== 'string' || !outputText.trim()) {
+    throw new ResponseError(502, 'Voice analysis returned no result.');
+  }
+
+  try {
+    return json({ ...JSON.parse(outputText), transcript });
+  } catch {
+    throw new ResponseError(502, 'Voice analysis returned an invalid result.');
+  }
+}
+
 class ResponseError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -223,6 +356,7 @@ export default {
           ok: true,
           service: 'resource-memory-api',
           imageIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
+          voiceIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
         });
       }
 
@@ -279,6 +413,11 @@ export default {
       if (request.method === 'POST' && path === '/analyze-image') {
         await requireUser(request, sql);
         return analyzeImage(request, env);
+      }
+
+      if (request.method === 'POST' && path === '/analyze-audio') {
+        await requireUser(request, sql);
+        return analyzeAudio(request, env);
       }
 
       if (request.method === 'GET' && path === '/resources') {
