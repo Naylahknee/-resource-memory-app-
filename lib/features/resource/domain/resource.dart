@@ -31,6 +31,7 @@ class Resource {
     this.platform,
     this.thumbnail,
     this.assetPath,
+    this.transcript,
     this.type = ResourceType.other,
     this.status = ResourceStatus.saved,
     this.topics = const [],
@@ -48,6 +49,7 @@ class Resource {
   final String useWhen;
   final String? thumbnail;
   final String? assetPath;
+  final String? transcript;
   final ResourceType type;
   final ResourceStatus status;
   final List<String> topics;
@@ -62,6 +64,7 @@ class Resource {
         summary,
         whyUseful,
         useWhen,
+        transcript,
         ...topics,
         ...technologies,
       ].whereType<String>().join(' ').toLowerCase();
@@ -76,6 +79,7 @@ class Resource {
     String? useWhen,
     String? thumbnail,
     String? assetPath,
+    String? transcript,
     ResourceType? type,
     ResourceStatus? status,
     List<String>? topics,
@@ -93,6 +97,7 @@ class Resource {
       useWhen: useWhen ?? this.useWhen,
       thumbnail: thumbnail ?? this.thumbnail,
       assetPath: assetPath ?? this.assetPath,
+      transcript: transcript ?? this.transcript,
       type: type ?? this.type,
       status: status ?? this.status,
       topics: topics ?? this.topics,
@@ -113,6 +118,7 @@ class Resource {
         'useWhen': useWhen,
         'thumbnail': thumbnail,
         'assetPath': assetPath,
+        'transcript': transcript,
         'type': type.name,
         'status': status.name,
         'topics': topics,
@@ -133,6 +139,7 @@ class Resource {
       useWhen: map['useWhen'] as String? ?? '',
       thumbnail: map['thumbnail'] as String?,
       assetPath: map['assetPath'] as String?,
+      transcript: map['transcript'] as String?,
       type: ResourceType.values.firstWhere(
         (value) => value.name == map['type'],
         orElse: () => ResourceType.other,
