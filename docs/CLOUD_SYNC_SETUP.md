@@ -1,6 +1,6 @@
 # Cloud sync setup
 
-Resource Memory is local-first: Hive remains the fast offline cache on each device. Cross-device sync uses a Cloudflare Worker API, Neon Postgres for canonical resource data, Cloudflare R2 for uploaded files, and optional OpenAI image understanding behind the Worker.
+Resource Memory is local-first: Hive remains the fast offline cache on each device. Cross-device sync uses a Cloudflare Worker API, Neon Postgres for canonical resource data, Cloudflare R2 for uploaded files, and optional OpenAI understanding behind the Worker for screenshots and voice notes.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Cloudflare Worker API
    |         |          |
    v         v          v
 Neon       R2         OpenAI
-metadata   files      image understanding
+metadata   files      image + voice understanding
 ```
 
 The Flutter client never receives the Neon database connection string or OpenAI API key.
@@ -50,7 +50,7 @@ npm run deploy
 
 Enter the Neon connection string for `DATABASE_URL` and your OpenAI API key for `OPENAI_API_KEY`.
 
-`OPENAI_API_KEY` is optional for basic sync. Without it, screenshots still save and sync, but Resource Memory falls back to generic screenshot metadata instead of understanding what is shown in the image.
+`OPENAI_API_KEY` is optional for basic local saving and sync. Without it, screenshots and voice notes still save, but Resource Memory cannot automatically understand screenshots or transcribe and organize voice notes.
 
 The Worker exposes:
 
@@ -59,6 +59,7 @@ POST   /auth/register
 POST   /auth/login
 POST   /auth/logout
 POST   /analyze-image
+POST   /analyze-audio
 GET    /resources
 PUT    /resources/:id
 DELETE /resources/:id
@@ -69,6 +70,8 @@ GET    /health
 ```
 
 `POST /analyze-image` is authenticated. It sends the screenshot to OpenAI through the Worker and returns structured resource metadata: title, visible URL when present, creator, platform, summary, why-useful, use-when, topics, technologies, and resource type.
+
+`POST /analyze-audio` is authenticated. It transcribes the audio with OpenAI speech-to-text, then turns the transcript into the same retrieval-oriented metadata. The original audio file is stored separately in R2 when sync is connected, while the transcript and metadata are stored with the Resource in Neon.
 
 Passwords are derived with PBKDF2 in the Worker. Session tokens are hashed before being stored in Neon.
 
@@ -91,7 +94,7 @@ flutter run \
   --dart-define=RESOURCE_API_URL=https://resource-memory-api.YOUR-SUBDOMAIN.workers.dev
 ```
 
-## Sync and image behavior
+## Sync, image, and voice behavior
 
 - Hive remains the local/offline copy.
 - A Resource Memory email/password account can be used on desktop, web, Android, and iOS.
@@ -99,7 +102,12 @@ flutter run \
 - `Sync now` uploads the local library and pulls the canonical library back down.
 - Dropped, uploaded, and pasted screenshots can be analyzed before saving when the user is signed in and `OPENAI_API_KEY` is configured.
 - The image analysis can extract a visible website/domain and make it the Resource link rather than treating the screenshot itself as the only resource.
-- Screenshot/file bytes upload to R2 when sync is connected.
+- Voice Memory can record directly from the microphone or import an existing voice memo.
+- Voice notes are limited to five minutes for direct recording in the current UI.
+- Voice notes are transcribed, summarized, tagged with topics/technologies, and given a `useWhen` retrieval trigger.
+- Spoken URLs can become clickable Resource links when they are confidently present in the transcript.
+- Android accepts shared `audio/*` files into Resource Memory. iOS Share Extension file support can pass voice memo files once the native Share Extension target is configured.
+- Screenshot, file, and voice-note bytes upload to R2 when sync is connected.
 - Each synced file Resource stores an `assetPath` that points to its authenticated R2 endpoint.
 - The Worker can return the original bytes through `GET /assets/:resourceId` on another signed-in device.
 - The Neon credential and OpenAI API key stay only in Cloudflare Worker secrets.
@@ -118,6 +126,7 @@ A configured deployment returns an object containing:
 {
   "ok": true,
   "service": "resource-memory-api",
-  "imageIntelligenceConfigured": true
+  "imageIntelligenceConfigured": true,
+  "voiceIntelligenceConfigured": true
 }
 ```
