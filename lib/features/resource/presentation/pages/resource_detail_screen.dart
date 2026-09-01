@@ -27,6 +27,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   late final TextEditingController _useWhen;
   late final TextEditingController _topics;
   late final TextEditingController _technologies;
+  late final TextEditingController _transcript;
   Resource? _resource;
   Uint8List? _assetBytes;
   bool _assetLoading = false;
@@ -45,6 +46,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     _useWhen = TextEditingController(text: resource?.useWhen ?? '');
     _topics = TextEditingController(text: resource?.topics.join(', ') ?? '');
     _technologies = TextEditingController(text: resource?.technologies.join(', ') ?? '');
+    _transcript = TextEditingController(text: resource?.transcript ?? '');
     if (resource?.assetPath != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadAsset());
     }
@@ -90,6 +92,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
       summary: _summary.text.trim(),
       whyUseful: _whyUseful.text.trim(),
       useWhen: _useWhen.text.trim(),
+      transcript: _transcript.text.trim(),
       topics: _split(_topics.text),
       technologies: _split(_technologies.text),
     );
@@ -115,6 +118,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
     _useWhen.dispose();
     _topics.dispose();
     _technologies.dispose();
+    _transcript.dispose();
     super.dispose();
   }
 
@@ -164,6 +168,8 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                     _linkField(context),
                     _field('Creator', _creator),
                     _field('Summary', _summary, lines: 4),
+                    if (_transcript.text.isNotEmpty || resource.platform?.toLowerCase().contains('voice') == true)
+                      _field('Transcript', _transcript, lines: 8, hint: 'Voice transcript'),
                     _field('Why this is useful', _whyUseful, lines: 3),
                     _field('Use when', _useWhen, lines: 3),
                     _field('Topics', _topics, hint: 'MVP, UI, Roblox'),
@@ -272,6 +278,7 @@ class _SyncedAssetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isImage = resource.type == ResourceType.screenshot;
+    final isVoice = resource.platform?.toLowerCase().contains('voice') == true;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -284,9 +291,12 @@ class _SyncedAssetCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.cloud_done_outlined, color: AppColors.accent),
+            Icon(
+              isVoice ? Icons.mic_none_rounded : Icons.cloud_done_outlined,
+              color: AppColors.accent,
+            ),
             const SizedBox(width: 8),
-            Text('Synced file', style: AppTypography.h3),
+            Text(isVoice ? 'Original voice note' : 'Synced file', style: AppTypography.h3),
           ]),
           const SizedBox(height: 12),
           if (bytes != null && isImage)
@@ -296,7 +306,9 @@ class _SyncedAssetCard extends StatelessWidget {
             )
           else if (bytes != null)
             Text(
-              'File loaded from your synced library (${(bytes!.length / 1024).toStringAsFixed(1)} KB).',
+              isVoice
+                  ? 'Voice note loaded from your synced library (${(bytes!.length / 1024).toStringAsFixed(1)} KB).'
+                  : 'File loaded from your synced library (${(bytes!.length / 1024).toStringAsFixed(1)} KB).',
               style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
             )
           else
@@ -311,7 +323,7 @@ class _SyncedAssetCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.cloud_download_outlined),
-                label: Text(loading ? 'Loading…' : 'Load synced file'),
+                label: Text(loading ? 'Loading…' : (isVoice ? 'Load voice note' : 'Load synced file')),
               ),
             ),
         ],
