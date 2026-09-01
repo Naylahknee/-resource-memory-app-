@@ -4,6 +4,55 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 
+class ImageResourceAnalysis {
+  const ImageResourceAnalysis({
+    required this.title,
+    required this.summary,
+    required this.whyUseful,
+    required this.useWhen,
+    required this.resourceType,
+    this.url,
+    this.creator,
+    this.platform,
+    this.topics = const [],
+    this.technologies = const [],
+  });
+
+  final String title;
+  final String? url;
+  final String? creator;
+  final String? platform;
+  final String summary;
+  final String whyUseful;
+  final String useWhen;
+  final String resourceType;
+  final List<String> topics;
+  final List<String> technologies;
+
+  factory ImageResourceAnalysis.fromMap(Map<String, dynamic> map) {
+    return ImageResourceAnalysis(
+      title: (map['title'] as String?)?.trim().isNotEmpty == true
+          ? (map['title'] as String).trim()
+          : 'Saved visual resource',
+      url: (map['url'] as String?)?.trim().isNotEmpty == true
+          ? (map['url'] as String).trim()
+          : null,
+      creator: (map['creator'] as String?)?.trim().isNotEmpty == true
+          ? (map['creator'] as String).trim()
+          : null,
+      platform: (map['platform'] as String?)?.trim().isNotEmpty == true
+          ? (map['platform'] as String).trim()
+          : null,
+      summary: (map['summary'] as String?)?.trim() ?? '',
+      whyUseful: (map['whyUseful'] as String?)?.trim() ?? '',
+      useWhen: (map['useWhen'] as String?)?.trim() ?? '',
+      resourceType: (map['resourceType'] as String?)?.trim() ?? 'screenshot',
+      topics: List<String>.from(map['topics'] as List? ?? const []),
+      technologies: List<String>.from(map['technologies'] as List? ?? const []),
+    );
+  }
+}
+
 class CloudSyncService {
   static const _apiUrl = String.fromEnvironment('RESOURCE_API_URL');
   static const _tokenKey = 'resource_memory_sync_token';
@@ -74,6 +123,25 @@ class CloudSyncService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_emailKey);
+  }
+
+  static Future<ImageResourceAnalysis?> analyzeImage({
+    required List<int> bytes,
+    required String contentType,
+  }) async {
+    if (!isConfigured || !isSignedIn || bytes.isEmpty) return null;
+    final response = await http
+        .post(
+          _uri('/analyze-image'),
+          headers: {
+            ..._authHeaders(),
+            'content-type': contentType,
+          },
+          body: bytes,
+        )
+        .timeout(const Duration(seconds: 45));
+    final data = _decode(response);
+    return ImageResourceAnalysis.fromMap(data);
   }
 
   static Future<void> push(Resource resource) async {
