@@ -39,6 +39,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Resource Memory uses your photo library so you can save screenshots as learning resources.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Resource Memory uses your microphone so you can save voice notes as searchable resources.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
