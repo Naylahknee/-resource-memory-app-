@@ -30,6 +30,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
     if (_recording) {
       final bytes = await _capture.stop();
       _timer?.cancel();
+      if (!mounted) return;
       setState(() {
         _recording = false;
         _elapsed = Duration.zero;
@@ -39,6 +40,14 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
           bytes: bytes,
           fileName: 'voice-memory-${DateTime.now().millisecondsSinceEpoch}.wav',
           contentType: 'audio/wav',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No audio was returned by the microphone. Please try recording again.',
+            ),
+          ),
         );
       }
       return;
