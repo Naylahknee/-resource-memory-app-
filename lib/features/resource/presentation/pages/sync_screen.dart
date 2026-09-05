@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:taskee/app/routing/app_route.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/resource/data/cloud_sync_service.dart';
@@ -55,6 +57,7 @@ class _SyncScreenState extends State<SyncScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Synced $count resources.')),
       );
+      setState(() {});
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -76,6 +79,7 @@ class _SyncScreenState extends State<SyncScreen> {
   Widget build(BuildContext context) {
     final configured = CloudSyncService.isConfigured;
     final signedIn = CloudSyncService.isSignedIn;
+    final localCount = ResourceStore.getAll().length;
 
     return Scaffold(
       body: AppGradient(
@@ -103,6 +107,15 @@ class _SyncScreenState extends State<SyncScreen> {
                       'Use the same Resource Memory account on each device. Hive stays local for speed; Neon is the canonical synced library behind the Resource API.',
                       style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
                     ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.go('/${Routes.installAppScreen}'),
+                        icon: const Icon(Icons.install_mobile_outlined),
+                        label: const Text('Install Resource Memory on this device'),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     if (!configured)
                       const _StatusCard(
@@ -114,7 +127,7 @@ class _SyncScreenState extends State<SyncScreen> {
                       _StatusCard(
                         icon: Icons.cloud_done_outlined,
                         title: 'Sync is connected',
-                        body: CloudSyncService.currentEmail ?? 'Signed in',
+                        body: '${CloudSyncService.currentEmail ?? 'Signed in'} • $localCount resources on this device',
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -124,6 +137,11 @@ class _SyncScreenState extends State<SyncScreen> {
                           icon: const Icon(Icons.sync),
                           label: Text(_busy ? 'Syncing…' : 'Sync now'),
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Cross-device check: sync on desktop, then sync here. The resource count should match and your links, screenshots, and voice memories should appear in Library.',
+                        style: AppTypography.bodySm.copyWith(color: AppColors.textMuted),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
