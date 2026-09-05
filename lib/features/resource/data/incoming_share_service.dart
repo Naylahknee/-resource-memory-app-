@@ -76,24 +76,64 @@ class IncomingShareService {
   }
 
   static Future<bool> _saveImage(SharedMediaFile item) async {
-    final now = DateTime.now();
     final name = _fileName(item.path, fallback: 'Shared screenshot');
-    await ResourceStore.save(
-      Resource(
-        id: now.microsecondsSinceEpoch.toString(),
-        title: name,
-        platform: 'Shared image',
-        thumbnail: item.path,
-        summary: item.message?.trim().isNotEmpty == true
-            ? item.message!.trim()
-            : 'An image or screenshot shared into Resource Memory.',
-        whyUseful: 'Useful as a visual reference you wanted Future You to keep.',
-        useWhen: 'Resurface when the current project overlaps with the subject of this image.',
-        type: ResourceType.screenshot,
-        topics: const ['screenshot', 'visual reference'],
-        savedAt: now,
-      ),
+    final bytes = await XFile(item.path).readAsBytes();
+    if (bytes.isEmpty) return false;
+
+    ImageResourceAnalysis? analysis;
+    if (CloudSyncService.isConfigured && CloudSyncService.isSignedIn) {
+      try {
+        analysis = await CloudSyncService.analyzeImage(
+          bytes: bytes,
+          contentType: _imageContentType(name),
+        );
+      } catch (_) {
+        // The image still saves if understanding is unavailable.
+      }
+    }
+
+    final now = DateTime.now();
+    final extractedUrl = analysis?.url == null
+        ? null
+        : ResourceLinkService.normalize(analysis!.url)?.toString();
+    var resource = Resource(
+      id: now.microsecondsSinceEpoch.toString(),
+      title: analysis?.title ?? name,
+      url: extractedUrl,
+      creator: analysis?.creator,
+      platform: analysis?.platform ?? 'Shared image',
+      thumbnail: item.path,
+      summary: analysis?.summary ??
+          (item.message?.trim().isNotEmpty == true
+              ? item.message!.trim()
+              : 'An image or screenshot shared into Resource Memory.'),
+      whyUseful: analysis?.whyUseful ??
+          'Useful as a visual reference you wanted Future You to keep.',
+      useWhen: analysis?.useWhen ??
+          'Resurface when the current project overlaps with the subject of this image.',
+      type: analysis == null
+          ? ResourceType.screenshot
+          : _resourceTypeFromName(analysis.resourceType),
+      topics: analysis?.topics ?? const ['screenshot', 'visual reference'],
+      technologies: analysis?.technologies ?? const [],
+      savedAt: now,
     );
+    await ResourceStore.save(resource);
+
+    if (CloudSyncService.isConfigured && CloudSyncService.isSignedIn) {
+      try {
+        final assetPath = await CloudSyncService.uploadAsset(
+          resourceId: resource.id,
+          fileName: name,
+          bytes: bytes,
+          contentType: _imageContentType(name),
+        );
+        if (assetPath != null) {
+          resource = resource.copyWith(assetPath: assetPath);
+          await ResourceStore.save(resource);
+        }
+      } catch (_) {}
+    }
     return true;
   }
 
@@ -195,6 +235,15 @@ class IncomingShareService {
     if (lower.endsWith('.flac')) return 'audio/flac';
     if (lower.endsWith('.aac')) return 'audio/aac';
     return 'audio/wav';
+  }
+
+  static String _imageContentType(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    return 'image/png';
   }
 
   static String? _firstUrl(String text) {
