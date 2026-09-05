@@ -66,15 +66,15 @@ class _ResourceMemoryAppState extends State<ResourceMemoryApp> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: MaterialApp.router(
-        title: 'Resource Memory',
-        theme: AppTheme.dark,
-        debugShowCheckedModeBanner: false,
-        routerConfig: goRouter,
-      ),
+    // Keep MaterialApp.router at the root. Wrapping the entire router in a
+    // full-screen GestureDetector can win the hit-test arena on iOS standalone
+    // PWAs and leave the UI rendered but controls effectively untappable.
+    // Individual input screens handle focus dismissal where needed.
+    return MaterialApp.router(
+      title: 'Resource Memory',
+      theme: AppTheme.dark,
+      debugShowCheckedModeBanner: false,
+      routerConfig: goRouter,
     );
   }
 }
