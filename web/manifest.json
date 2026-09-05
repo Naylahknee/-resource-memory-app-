@@ -2,7 +2,7 @@
   "id": "resource-memory",
   "name": "Resource Memory",
   "short_name": "Memory",
-  "start_url": ".",
+  "start_url": "./?v=20260905-2",
   "scope": ".",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
