@@ -7,6 +7,7 @@ class VoiceCaptureService {
   final AudioRecorder _recorder = AudioRecorder();
   final List<int> _pcmBytes = [];
   StreamSubscription<Uint8List>? _subscription;
+  Completer<void>? _streamDone;
   DateTime? _startedAt;
 
   static const int sampleRate = 16000;
@@ -23,6 +24,7 @@ class VoiceCaptureService {
     if (!await _recorder.hasPermission()) return false;
 
     _pcmBytes.clear();
+    _streamDone = Completer<void>();
     final stream = await _recorder.startStream(
       const RecordConfig(
         encoder: AudioEncoder.pcm16bits,
@@ -32,17 +34,39 @@ class VoiceCaptureService {
         noiseSuppress: true,
       ),
     );
-    _subscription = stream.listen(_pcmBytes.addAll);
+    _subscription = stream.listen(
+      _pcmBytes.addAll,
+      onDone: () {
+        final done = _streamDone;
+        if (done != null && !done.isCompleted) done.complete();
+      },
+      onError: (_) {
+        final done = _streamDone;
+        if (done != null && !done.isCompleted) done.complete();
+      },
+      cancelOnError: false,
+    );
     _startedAt = DateTime.now();
     return true;
   }
 
   Future<Uint8List?> stop() async {
     if (!isRecording) return null;
+
+    // On Safari/iOS PWA the recorder can deliver its last (or only) audio
+    // chunk when stop() closes the MediaRecorder stream. Do not cancel the
+    // subscription immediately or those bytes are lost and nothing is saved.
     await _recorder.stop();
+    try {
+      await _streamDone?.future.timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      // Keep whatever chunks have arrived; this also prevents a hung stop.
+    }
     await _subscription?.cancel();
     _subscription = null;
+    _streamDone = null;
     _startedAt = null;
+
     if (_pcmBytes.isEmpty) return null;
     return _wavFromPcm(Uint8List.fromList(_pcmBytes));
   }
@@ -51,13 +75,14 @@ class VoiceCaptureService {
     if (isRecording) await _recorder.cancel();
     await _subscription?.cancel();
     _subscription = null;
+    _streamDone = null;
     _startedAt = null;
     _pcmBytes.clear();
   }
 
   Future<void> dispose() async {
     await cancel();
-    _recorder.dispose();
+    await _recorder.dispose();
   }
 
   Uint8List _wavFromPcm(Uint8List pcm) {
