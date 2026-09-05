@@ -67,7 +67,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
 
   Future<void> _pickExistingAudio() async {
     if (_processing || _recording) return;
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.audio,
       allowMultiple: false,
       withData: true,
