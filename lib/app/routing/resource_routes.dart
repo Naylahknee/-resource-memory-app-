@@ -7,6 +7,7 @@ import 'package:taskee/features/resource/presentation/pages/resource_detail_scre
 import 'package:taskee/features/resource/presentation/pages/resource_home_screen.dart';
 import 'package:taskee/features/resource/presentation/pages/save_resource_screen.dart';
 import 'package:taskee/features/resource/presentation/pages/sync_screen.dart';
+import 'package:taskee/features/resource/presentation/pages/voice_memory_screen.dart';
 
 final List<RouteBase> resourceRoutes = <RouteBase>[
   GoRoute(
@@ -18,6 +19,11 @@ final List<RouteBase> resourceRoutes = <RouteBase>[
         path: Routes.saveResourceScreen,
         builder: (BuildContext context, GoRouterState state) =>
             const SaveResourceScreen(),
+      ),
+      GoRoute(
+        path: Routes.voiceMemoryScreen,
+        builder: (BuildContext context, GoRouterState state) =>
+            const VoiceMemoryScreen(),
       ),
       GoRoute(
         path: Routes.libraryScreen,

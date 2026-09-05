@@ -63,6 +63,16 @@ class ResourceHomeScreen extends StatelessWidget {
                                   onTap: () => context.go('/${Routes.saveResourceScreen}'),
                                 ),
                               ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: _ActionCard(
+                                  icon: Icons.mic_none_rounded,
+                                  title: 'Say it before you forget it',
+                                  body: 'Record an idea or import a voice memo. We’ll transcribe it and make it useful again later.',
+                                  action: 'Save a voice memory',
+                                  onTap: () => context.go('/${Routes.voiceMemoryScreen}'),
+                                ),
+                              ),
                             ],
                           )
                         else ...[
@@ -80,6 +90,14 @@ class ResourceHomeScreen extends StatelessWidget {
                             body: 'Threads, YouTube, GitHub, websites, screenshots — save it with context.',
                             action: 'Save a resource',
                             onTap: () => context.go('/${Routes.saveResourceScreen}'),
+                          ),
+                          const SizedBox(height: 16),
+                          _ActionCard(
+                            icon: Icons.mic_none_rounded,
+                            title: 'Say it before you forget it',
+                            body: 'Record an idea or import a voice memo. We’ll transcribe it and make it useful again later.',
+                            action: 'Save a voice memory',
+                            onTap: () => context.go('/${Routes.voiceMemoryScreen}'),
                           ),
                         ],
                         SizedBox(height: isDesktop ? 44 : 28),
