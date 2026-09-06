@@ -71,7 +71,7 @@ class _ResourceMemoryAppState extends State<ResourceMemoryApp> {
     // PWAs and leave the UI rendered but controls effectively untappable.
     // Individual input screens handle focus dismissal where needed.
     return MaterialApp.router(
-      title: 'Resource Memory',
+      title: 'NanyNany',
       theme: AppTheme.dark,
       debugShowCheckedModeBanner: false,
       routerConfig: goRouter,
