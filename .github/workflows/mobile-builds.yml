@@ -2,6 +2,13 @@ name: Mobile Builds
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'ios/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/mobile-builds.yml'
   pull_request:
     paths:
       - 'lib/**'
@@ -67,12 +74,12 @@ jobs:
       - name: Package unsigned iOS app
         run: |
           mkdir -p build/ios-artifact
-          cp -R build/ios/iphoneos/Runner.app build/ios-artifact/ResourceMemory.app
-          ditto -c -k --sequesterRsrc --keepParent build/ios-artifact/ResourceMemory.app build/ResourceMemory-ios-nosign.zip
+          cp -R build/ios/iphoneos/Runner.app build/ios-artifact/NanyNany.app
+          ditto -c -k --sequesterRsrc --keepParent build/ios-artifact/NanyNany.app build/NanyNany-ios-nosign.zip
 
       - name: Upload unsigned iOS build
         uses: actions/upload-artifact@v4
         with:
-          name: resource-memory-ios-nosign
-          path: build/ResourceMemory-ios-nosign.zip
+          name: nanynany-ios-nosign
+          path: build/NanyNany-ios-nosign.zip
           if-no-files-found: error
