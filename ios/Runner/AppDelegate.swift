@@ -116,32 +116,95 @@ import AppIntents
       return
     }
 
-    let content = UNMutableNotificationContent()
-    content.title = title
-    content.body = body
-    content.sound = .default
-    if #available(iOS 15.0, *) {
-      content.interruptionLevel = .timeSensitive
-    }
-    content.userInfo = [
-      "resourceMemoryReminderId": id,
-      "spokenText": body
-    ]
+    createSpokenNotificationSound(text: body, id: id) { [weak self] soundName in
+      guard self != nil else { return }
 
-    let components = Calendar.current.dateComponents(
-      [.year, .month, .day, .hour, .minute, .second],
-      from: date
-    )
-    let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-    let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+      let content = UNMutableNotificationContent()
+      content.title = title
+      content.body = body
+      content.sound = soundName.map { UNNotificationSound(named: UNNotificationSoundName(rawValue: $0)) } ?? .default
+      if #available(iOS 15.0, *) {
+        content.interruptionLevel = .timeSensitive
+      }
+      content.userInfo = [
+        "resourceMemoryReminderId": id,
+        "spokenText": body
+      ]
 
-    UNUserNotificationCenter.current().add(request) { error in
-      DispatchQueue.main.async {
-        if let error {
-          result(FlutterError(code: "schedule", message: error.localizedDescription, details: nil))
-        } else {
-          result(true)
+      let components = Calendar.current.dateComponents(
+        [.year, .month, .day, .hour, .minute, .second],
+        from: date
+      )
+      let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+      let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+
+      UNUserNotificationCenter.current().add(request) { error in
+        DispatchQueue.main.async {
+          if let error {
+            result(FlutterError(code: "schedule", message: error.localizedDescription, details: nil))
+          } else {
+            result(true)
+          }
         }
+      }
+    }
+  }
+
+  private func createSpokenNotificationSound(
+    text: String,
+    id: String,
+    completion: @escaping (String?) -> Void
+  ) {
+    let fm = FileManager.default
+    guard let library = fm.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+      completion(nil)
+      return
+    }
+
+    let sounds = library.appendingPathComponent("Sounds", isDirectory: true)
+    do {
+      try fm.createDirectory(at: sounds, withIntermediateDirectories: true)
+    } catch {
+      completion(nil)
+      return
+    }
+
+    let safeId = id.replacingOccurrences(of: "/", with: "-")
+    let fileName = "rm-\(safeId).caf"
+    let url = sounds.appendingPathComponent(fileName)
+    try? fm.removeItem(at: url)
+
+    let writer = AVSpeechSynthesizer()
+    let utterance = AVSpeechUtterance(string: text)
+    utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+    utterance.rate = 0.48
+    utterance.volume = 1.0
+
+    var audioFile: AVAudioFile?
+    var failed = false
+
+    writer.write(utterance) { buffer in
+      guard let pcm = buffer as? AVAudioPCMBuffer else { return }
+
+      if pcm.frameLength == 0 {
+        DispatchQueue.main.async {
+          completion(failed ? nil : fileName)
+        }
+        return
+      }
+
+      do {
+        if audioFile == nil {
+          audioFile = try AVAudioFile(
+            forWriting: url,
+            settings: pcm.format.settings,
+            commonFormat: pcm.format.commonFormat,
+            interleaved: pcm.format.isInterleaved
+          )
+        }
+        try audioFile?.write(from: pcm)
+      } catch {
+        failed = true
       }
     }
   }
