@@ -4,6 +4,7 @@ class Routes {
   static const voiceMemoryScreen = 'voice-memory';
   static const libraryScreen = 'library';
   static const projectMatchScreen = 'project-match';
+  static const commitmentsScreen = 'commitments';
   static const syncScreen = 'sync';
   static const installAppScreen = 'install-app';
 }
