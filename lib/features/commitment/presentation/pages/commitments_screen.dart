@@ -4,6 +4,7 @@ import 'package:taskee/app/routing/app_route.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/commitment/data/commitment_store.dart';
+import 'package:taskee/features/commitment/data/phone_bridge.dart';
 import 'package:taskee/features/commitment/domain/commitment.dart';
 
 class CommitmentsScreen extends StatefulWidget {
@@ -17,7 +18,16 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
   List<Commitment> get items => CommitmentStore.getAll();
 
   Future<void> _setStatus(Commitment item, CommitmentStatus status) async {
-    await CommitmentStore.save(item.copyWith(status: status));
+    final updated = item.copyWith(status: status);
+    await CommitmentStore.save(updated);
+
+    if (status == CommitmentStatus.upcoming) {
+      await PhoneBridge.requestNotificationPermission();
+      await PhoneBridge.scheduleCommitmentReminders(updated);
+    } else if (status == CommitmentStatus.done || status == CommitmentStatus.dismissed) {
+      await PhoneBridge.cancelCommitmentReminders(item.id);
+    }
+
     if (mounted) setState(() {});
   }
 
