@@ -1,6 +1,7 @@
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:taskee/features/resource/data/cloud_sync_service.dart';
+import 'package:taskee/features/commitment/data/phone_bridge.dart';
 
 class SpokenReminderSettings {
   const SpokenReminderSettings({
@@ -49,6 +50,11 @@ class SpokenReminderService {
   static Future<void> speak(String text) async {
     final settings = await loadSettings();
     if (!settings.enabled || text.trim().isEmpty) return;
+
+    if (PhoneBridge.isIOS) {
+      await PhoneBridge.speak(text);
+      return;
+    }
 
     // ElevenLabs is requested through Resource Memory's authenticated backend.
     // The API key never belongs in the Flutter client.
