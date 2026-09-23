@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:taskee/app/routing/app_route.dart';
 import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/commitment/data/commitment_store.dart';
@@ -34,6 +36,13 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: const Text('Remember'),
+        actions: [
+          IconButton(
+            tooltip: 'Spoken reminders',
+            onPressed: () => context.go('/${Routes.spokenReminderSettingsScreen}'),
+            icon: const Icon(Icons.volume_up_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
