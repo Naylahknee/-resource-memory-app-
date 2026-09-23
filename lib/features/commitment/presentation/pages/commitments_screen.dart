@@ -3,84 +3,193 @@ import 'package:taskee/app/theme/app_colors.dart';
 import 'package:taskee/app/theme/app_typography.dart';
 import 'package:taskee/features/commitment/data/commitment_store.dart';
 import 'package:taskee/features/commitment/domain/commitment.dart';
-import 'package:taskee/features/widget/app_gradient.dart';
 
 class CommitmentsScreen extends StatefulWidget {
   const CommitmentsScreen({super.key});
-  @override State<CommitmentsScreen> createState() => _CommitmentsScreenState();
+
+  @override
+  State<CommitmentsScreen> createState() => _CommitmentsScreenState();
 }
 
 class _CommitmentsScreenState extends State<CommitmentsScreen> {
   List<Commitment> get items => CommitmentStore.getAll();
 
-  Future<void> _setStatus(Commitment c, CommitmentStatus status) async {
-    await CommitmentStore.save(c.copyWith(status: status));
+  Future<void> _setStatus(Commitment item, CommitmentStatus status) async {
+    await CommitmentStore.save(item.copyWith(status: status));
     if (mounted) setState(() {});
   }
 
-  @override Widget build(BuildContext context) {
-    final pending = items.where((e) => e.status == CommitmentStatus.needsConfirmation).toList();
-    final active = items.where((e) => e.status != CommitmentStatus.needsConfirmation && e.status != CommitmentStatus.done && e.status != CommitmentStatus.dismissed).toList();
+  @override
+  Widget build(BuildContext context) {
+    final possible = items.where((e) => e.status == CommitmentStatus.needsConfirmation).toList();
+    final upcoming = items.where((e) =>
+      e.status != CommitmentStatus.needsConfirmation &&
+      e.status != CommitmentStatus.done &&
+      e.status != CommitmentStatus.dismissed).toList();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('What am I forgetting?')),
-      body: AppGradient(child: SafeArea(child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text('Commitment memory', style: AppTypography.h2),
-          const SizedBox(height: 8),
-          Text('Appointments, meetings and deadlines stay active until you acknowledge them.', style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
-          const SizedBox(height: 28),
-          if (pending.isNotEmpty) ...[
-            Text('POSSIBLE COMMITMENTS', style: AppTypography.labelLg.copyWith(color: AppColors.textMuted)),
-            const SizedBox(height: 10),
-            ...pending.map((c) => _CommitmentCard(c: c, confirm: () => _setStatus(c, CommitmentStatus.upcoming), dismiss: () => _setStatus(c, CommitmentStatus.dismissed))),
-            const SizedBox(height: 22),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('Remember'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+          children: [
+            Text('What am I forgetting?', style: AppTypography.h2),
+            const SizedBox(height: 6),
+            Text(
+              'Things that need your attention stay here until you handle them.',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 30),
+            if (possible.isNotEmpty) ...[
+              _SectionLabel('Needs your review'),
+              const SizedBox(height: 8),
+              _CommitmentList(
+                items: possible,
+                trailingBuilder: (item) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => _setStatus(item, CommitmentStatus.dismissed),
+                      child: const Text('Ignore'),
+                    ),
+                    const SizedBox(width: 4),
+                    TextButton(
+                      onPressed: () => _setStatus(item, CommitmentStatus.upcoming),
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+            ],
+            _SectionLabel('Upcoming'),
+            const SizedBox(height: 8),
+            if (upcoming.isEmpty)
+              const _EmptyState()
+            else
+              _CommitmentList(
+                items: upcoming,
+                trailingBuilder: (item) => PopupMenuButton<CommitmentStatus>(
+                  tooltip: 'More actions',
+                  icon: const Icon(Icons.more_horiz),
+                  onSelected: (value) => _setStatus(item, value),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: CommitmentStatus.ready, child: Text("I'm ready")),
+                    PopupMenuItem(value: CommitmentStatus.onMyWay, child: Text("I'm on my way")),
+                    PopupMenuItem(value: CommitmentStatus.done, child: Text('Done')),
+                  ],
+                ),
+              ),
           ],
-          Text('UPCOMING', style: AppTypography.labelLg.copyWith(color: AppColors.textMuted)),
-          const SizedBox(height: 10),
-          if (active.isEmpty) Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.kBorderColor)),
-            child: Text('Nothing needs your attention right now.', style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
-          ),
-          ...active.map((c) => _CommitmentCard(c: c, ready: () => _setStatus(c, CommitmentStatus.ready), done: () => _setStatus(c, CommitmentStatus.done))),
-          const SizedBox(height: 28),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: AppColors.surface.withValues(alpha: .72), borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.kBorderColor)),
-            child: Text('Email + Calendar connection is the next layer. Resource Memory will detect possible commitments, ask before adding them, then use persistent spoken prompts when action is due.', style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
-          ),
-        ],
-      ))),
+        ),
+      ),
     );
   }
 }
 
-class _CommitmentCard extends StatelessWidget {
-  final Commitment c;
-  final VoidCallback? confirm, dismiss, ready, done;
-  const _CommitmentCard({required this.c, this.confirm, this.dismiss, this.ready, this.done});
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
 
-  @override Widget build(BuildContext context) {
-    final local = c.dueAt.toLocal();
-    final when = MaterialLocalizations.of(context).formatMediumDate(local) + ' · ' + TimeOfDay.fromDateTime(local).format(context);
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: AppTypography.labelLg.copyWith(color: AppColors.textSecondary),
+  );
+}
+
+class _CommitmentList extends StatelessWidget {
+  final List<Commitment> items;
+  final Widget Function(Commitment item) trailingBuilder;
+  const _CommitmentList({required this.items, required this.trailingBuilder});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.kBorderColor)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(c.title, style: AppTypography.h3),
-        const SizedBox(height: 6),
-        Text(when, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
-        if (c.detail != null) ...[const SizedBox(height: 6), Text(c.detail!, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary))],
-        const SizedBox(height: 14),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          if (confirm != null) FilledButton(onPressed: confirm, child: const Text('Add')),
-          if (dismiss != null) TextButton(onPressed: dismiss, child: const Text('Not important')),
-          if (ready != null) FilledButton(onPressed: ready, child: const Text("I'm ready")),
-          if (done != null) OutlinedButton(onPressed: done, child: const Text('Done')),
-        ]),
-      ]),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            _CommitmentRow(item: items[i], trailing: trailingBuilder(items[i])),
+            if (i < items.length - 1)
+              const Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
+          ],
+        ],
+      ),
     );
   }
+}
+
+class _CommitmentRow extends StatelessWidget {
+  final Commitment item;
+  final Widget trailing;
+  const _CommitmentRow({required this.item, required this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    final local = item.dueAt.toLocal();
+    final date = MaterialLocalizations.of(context).formatMediumDate(local);
+    final time = TimeOfDay.fromDateTime(local).format(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(
+              time,
+              style: AppTypography.labelLg.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.title, style: AppTypography.bodyMd.copyWith(color: AppColors.textPrimary)),
+                const SizedBox(height: 3),
+                Text(
+                  item.detail == null ? date : '$date · ${item.detail}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          trailing,
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Text(
+      'Nothing needs your attention right now.',
+      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+    ),
+  );
 }
