@@ -215,6 +215,25 @@ class CloudSyncService {
     return AudioResourceAnalysis.fromMap(data);
   }
 
+  static Future<List<int>?> createSpeech({
+    required String text,
+    String? voiceId,
+  }) async {
+    if (!isSignedIn || !isConfigured || text.trim().isEmpty) return null;
+    final response = await http.post(
+      _uri('/speech'),
+      headers: _authHeaders(),
+      body: jsonEncode({
+        'text': text.trim(),
+        if (voiceId?.trim().isNotEmpty == true) 'voiceId': voiceId!.trim(),
+      }),
+    ).timeout(const Duration(seconds: 30));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response);
+    }
+    return response.bodyBytes;
+  }
+
   static Future<void> push(Resource resource) async {
     if (!isSignedIn || !isConfigured) return;
     final response = await http.put(
