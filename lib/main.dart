@@ -5,6 +5,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:taskee/app/routing/go_router.dart';
 import 'package:taskee/app/theme/app_theme.dart';
+import 'package:taskee/features/commitment/data/commitment_store.dart';
+import 'package:taskee/features/commitment/data/phone_bridge.dart';
 import 'package:taskee/features/resource/data/cloud_sync_service.dart';
 import 'package:taskee/features/resource/data/incoming_share_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
@@ -14,6 +16,7 @@ Future<void> main() async {
   await Hive.initFlutter();
   await CloudSyncService.initialize();
   await ResourceStore.initialize();
+  await CommitmentStore.initialize();
   if (CloudSyncService.isSignedIn) {
     await ResourceStore.syncNow();
   }
@@ -34,6 +37,19 @@ class _ResourceMemoryAppState extends State<ResourceMemoryApp> {
   void initState() {
     super.initState();
     _listenForShares();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handlePhoneShortcut());
+  }
+
+  Future<void> _handlePhoneShortcut() async {
+    try {
+      final shortcut = await PhoneBridge.getPendingShortcut();
+      if (!mounted || shortcut == null) return;
+      if (shortcut == 'commitments') {
+        goRouter.go('/commitments');
+      } else if (shortcut == 'remember') {
+        goRouter.go('/voice-memory');
+      }
+    } catch (_) {}
   }
 
   Future<void> _listenForShares() async {

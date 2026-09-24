@@ -182,11 +182,12 @@ class _Navigation extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: _NavPill(label: 'NOW', selected: true, onTap: () {})),
+          Expanded(child: _NavPill(label: 'REMEMBER', onTap: () => context.go('/${Routes.commitmentsScreen}'))),
           Expanded(child: _NavPill(label: 'LIBRARY', onTap: () => context.go('/${Routes.libraryScreen}'))),
         ],
       ),
     );
-    return isDesktop ? SizedBox(width: 420, child: nav) : nav;
+    return isDesktop ? SizedBox(width: 560, child: nav) : nav;
   }
 }
 
