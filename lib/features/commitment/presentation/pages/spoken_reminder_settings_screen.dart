@@ -70,14 +70,14 @@ class _SpokenReminderSettingsScreenState extends State<SpokenReminderSettingsScr
                     value: enabled,
                     onChanged: (value) async { setState(() => enabled = value); if (value) await PhoneBridge.requestNotificationPermission(); await _save(); },
                   ),
-                  const Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
+                  Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
                   SwitchListTile(
                     title: const Text('Natural voice'),
                     subtitle: const Text('Uses enhanced voice when available; device voice is the fallback.'),
                     value: natural,
                     onChanged: enabled ? (value) { setState(() => natural = value); _save(); } : null,
                   ),
-                  const Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
+                  Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
                   SwitchListTile(
                     title: const Text('Repeat until acknowledged'),
                     value: repeat,

@@ -141,7 +141,7 @@ class _CommitmentList extends StatelessWidget {
           for (var i = 0; i < items.length; i++) ...[
             _CommitmentRow(item: items[i], trailing: trailingBuilder(items[i])),
             if (i < items.length - 1)
-              const Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
+              Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
           ],
         ],
       ),

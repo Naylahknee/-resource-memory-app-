@@ -268,8 +268,8 @@ struct ResourceMemoryShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: RememberThisIntent(),
       phrases: [
-        "Remember this in \\(.applicationName)",
-        "Save this in \\(.applicationName)"
+        "Remember this in \(.applicationName)",
+        "Save this in \(.applicationName)"
       ],
       shortTitle: "Remember this",
       systemImageName: "bookmark"
@@ -277,8 +277,8 @@ struct ResourceMemoryShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: WhatAmIForgettingIntent(),
       phrases: [
-        "What am I forgetting in \\(.applicationName)",
-        "Show my reminders in \\(.applicationName)"
+        "What am I forgetting in \(.applicationName)",
+        "Show my reminders in \(.applicationName)"
       ],
       shortTitle: "What am I forgetting?",
       systemImageName: "bell"
