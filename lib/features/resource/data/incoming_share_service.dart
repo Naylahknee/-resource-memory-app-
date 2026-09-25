@@ -4,43 +4,87 @@ import 'package:taskee/features/resource/data/cloud_sync_service.dart';
 import 'package:taskee/features/resource/data/resource_enrichment_service.dart';
 import 'package:taskee/features/resource/data/resource_link_service.dart';
 import 'package:taskee/features/resource/data/resource_store.dart';
+import 'package:taskee/features/resource/domain/memory_capture.dart';
 import 'package:taskee/features/resource/domain/resource.dart';
 
 class IncomingShareService {
   static Future<int> saveSharedItems(List<SharedMediaFile> items) async {
     var saved = 0;
     for (final item in items) {
-      if (await _saveItem(item)) saved++;
+      final capture = _captureFromSharedMedia(item);
+      if (await saveCapture(capture)) saved++;
     }
     return saved;
   }
 
-  static Future<bool> _saveItem(SharedMediaFile item) async {
-    switch (item.type) {
-      case SharedMediaType.url:
-      case SharedMediaType.text:
-        return _saveTextOrUrl(item.path, item.message);
-      case SharedMediaType.image:
-        return _saveImage(item);
-      case SharedMediaType.video:
-      case SharedMediaType.file:
-        if (_isAudioPath(item.path)) return _saveAudio(item);
-        return _saveFile(item);
+  /// Shared ingestion doorway for current and future platform adapters.
+  static Future<bool> saveCapture(MemoryCapture capture) async {
+    switch (capture.kind) {
+      case MemoryCaptureKind.url:
+      case MemoryCaptureKind.text:
+      case MemoryCaptureKind.email:
+      case MemoryCaptureKind.calendar:
+      case MemoryCaptureKind.message:
+        return _saveTextOrUrl(capture);
+      case MemoryCaptureKind.image:
+        return _saveImage(capture);
+      case MemoryCaptureKind.audio:
+        return _saveAudio(capture);
+      case MemoryCaptureKind.video:
+      case MemoryCaptureKind.file:
+        return _saveFile(capture);
     }
   }
 
-  static Future<bool> _saveTextOrUrl(String raw, String? message) async {
-    final text = [raw, message].whereType<String>().join(' ').trim();
+  static MemoryCapture _captureFromSharedMedia(SharedMediaFile item) {
+    final path = item.path;
+    final kind = switch (item.type) {
+      SharedMediaType.url => MemoryCaptureKind.url,
+      SharedMediaType.text => MemoryCaptureKind.text,
+      SharedMediaType.image => MemoryCaptureKind.image,
+      SharedMediaType.video => MemoryCaptureKind.video,
+      SharedMediaType.file => _isAudioPath(path)
+          ? MemoryCaptureKind.audio
+          : MemoryCaptureKind.file,
+    };
+
+    return MemoryCapture.now(
+      kind: kind,
+      source: 'system_share_sheet',
+      text: item.message,
+      canonicalUrl: kind == MemoryCaptureKind.url ? path : null,
+      localPath: {
+        MemoryCaptureKind.image,
+        MemoryCaptureKind.audio,
+        MemoryCaptureKind.video,
+        MemoryCaptureKind.file,
+      }.contains(kind)
+          ? path
+          : null,
+      provenance: {
+        'adapter': 'receive_sharing_intent',
+        'sharedType': item.type.name,
+        if (kind == MemoryCaptureKind.text) 'rawText': path,
+      },
+    );
+  }
+
+  static Future<bool> _saveTextOrUrl(MemoryCapture capture) async {
+    final raw = capture.provenance['rawText'];
+    final text = [capture.canonicalUrl, raw, capture.text]
+        .whereType<String>()
+        .where((value) => value.trim().isNotEmpty)
+        .join(' ')
+        .trim();
     if (text.isEmpty) return false;
 
-    final url = _firstUrl(text);
+    final url = capture.canonicalUrl ?? _firstUrl(text);
     if (url != null) {
       if (_alreadySaved(url)) return false;
       final draft = await ResourceEnrichmentService.enrich(url);
-      final now = DateTime.now();
       await ResourceStore.save(
         Resource(
-          id: now.microsecondsSinceEpoch.toString(),
+          id: capture.id,
           title: draft.title,
           url: url,
           creator: draft.creator,
@@ -52,32 +96,33 @@ class IncomingShareService {
           type: draft.type,
           topics: draft.topics,
           technologies: draft.technologies,
-          savedAt: now,
+          savedAt: capture.capturedAt,
         ),
       );
       return true;
     }
 
-    final now = DateTime.now();
     await ResourceStore.save(
       Resource(
-        id: now.microsecondsSinceEpoch.toString(),
-        title: _titleFromText(text),
-        platform: 'Shared text',
+        id: capture.id,
+        title: capture.title ?? _titleFromText(text),
+        platform: _platformLabel(capture),
         summary: text,
-        whyUseful: 'You shared this because it contained an idea, explanation, or reference worth keeping.',
-        useWhen: 'Resurface when a project or learning goal overlaps with this note.',
+        whyUseful: 'You saved this because it contained an idea, explanation, event, message, or reference worth keeping.',
+        useWhen: 'Resurface when a project, commitment, person, or learning goal overlaps with this memory.',
         type: ResourceType.article,
-        topics: const ['shared text'],
-        savedAt: now,
+        topics: [_topicLabel(capture)],
+        savedAt: capture.capturedAt,
       ),
     );
     return true;
   }
 
-  static Future<bool> _saveImage(SharedMediaFile item) async {
-    final name = _fileName(item.path, fallback: 'Shared screenshot');
-    final bytes = await XFile(item.path).readAsBytes();
+  static Future<bool> _saveImage(MemoryCapture capture) async {
+    final path = capture.localPath;
+    if (path == null) return false;
+    final name = _fileName(path, fallback: 'Shared screenshot');
+    final bytes = await XFile(path).readAsBytes();
     if (bytes.isEmpty) return false;
 
     ImageResourceAnalysis? analysis;
@@ -85,38 +130,28 @@ class IncomingShareService {
       try {
         analysis = await CloudSyncService.analyzeImage(
           bytes: bytes,
-          contentType: _imageContentType(name),
+          contentType: capture.mimeType ?? _imageContentType(name),
         );
-      } catch (_) {
-        // The image still saves if understanding is unavailable.
-      }
+      } catch (_) {}
     }
 
-    final now = DateTime.now();
     final extractedUrl = analysis?.url == null
         ? null
         : ResourceLinkService.normalize(analysis!.url)?.toString();
     var resource = Resource(
-      id: now.microsecondsSinceEpoch.toString(),
-      title: analysis?.title ?? name,
+      id: capture.id,
+      title: analysis?.title ?? capture.title ?? name,
       url: extractedUrl,
       creator: analysis?.creator,
-      platform: analysis?.platform ?? 'Shared image',
-      thumbnail: item.path,
-      summary: analysis?.summary ??
-          (item.message?.trim().isNotEmpty == true
-              ? item.message!.trim()
-              : 'An image or screenshot shared into Resource Memory.'),
-      whyUseful: analysis?.whyUseful ??
-          'Useful as a visual reference you wanted Future You to keep.',
-      useWhen: analysis?.useWhen ??
-          'Resurface when the current project overlaps with the subject of this image.',
-      type: analysis == null
-          ? ResourceType.screenshot
-          : _resourceTypeFromName(analysis.resourceType),
+      platform: analysis?.platform ?? _platformLabel(capture),
+      thumbnail: path,
+      summary: analysis?.summary ?? capture.text ?? 'An image or screenshot saved into NanyNany.',
+      whyUseful: analysis?.whyUseful ?? 'Useful as a visual reference you wanted Future You to keep.',
+      useWhen: analysis?.useWhen ?? 'Resurface when the current project overlaps with the subject of this image.',
+      type: analysis == null ? ResourceType.screenshot : _resourceTypeFromName(analysis.resourceType),
       topics: analysis?.topics ?? const ['screenshot', 'visual reference'],
       technologies: analysis?.technologies ?? const [],
-      savedAt: now,
+      savedAt: capture.capturedAt,
     );
     await ResourceStore.save(resource);
 
@@ -126,7 +161,7 @@ class IncomingShareService {
           resourceId: resource.id,
           fileName: name,
           bytes: bytes,
-          contentType: _imageContentType(name),
+          contentType: capture.mimeType ?? _imageContentType(name),
         );
         if (assetPath != null) {
           resource = resource.copyWith(assetPath: assetPath);
@@ -137,9 +172,11 @@ class IncomingShareService {
     return true;
   }
 
-  static Future<bool> _saveAudio(SharedMediaFile item) async {
-    final name = _fileName(item.path, fallback: 'Shared voice memo');
-    final bytes = await XFile(item.path).readAsBytes();
+  static Future<bool> _saveAudio(MemoryCapture capture) async {
+    final path = capture.localPath;
+    if (path == null) return false;
+    final name = _fileName(path, fallback: 'Shared voice memo');
+    final bytes = await XFile(path).readAsBytes();
     if (bytes.isEmpty) return false;
 
     AudioResourceAnalysis? analysis;
@@ -147,35 +184,28 @@ class IncomingShareService {
       try {
         analysis = await CloudSyncService.analyzeAudio(
           bytes: bytes,
-          contentType: _audioContentType(name),
+          contentType: capture.mimeType ?? _audioContentType(name),
         );
-      } catch (_) {
-        // The voice memo still saves with local fallback metadata.
-      }
+      } catch (_) {}
     }
 
-    final now = DateTime.now();
     final extractedUrl = analysis?.url == null
         ? null
         : ResourceLinkService.normalize(analysis!.url)?.toString();
     var resource = Resource(
-      id: now.microsecondsSinceEpoch.toString(),
-      title: analysis?.title ?? name,
+      id: capture.id,
+      title: analysis?.title ?? capture.title ?? name,
       url: extractedUrl,
       creator: analysis?.creator,
-      platform: analysis?.platform ?? 'Shared voice memo',
-      summary: analysis?.summary ?? 'A voice memo shared into Resource Memory.',
-      whyUseful: analysis?.whyUseful ??
-          'You shared this recording because the idea or reference was worth keeping.',
-      useWhen: analysis?.useWhen ??
-          'Resurface when a project overlaps with what was discussed in this voice memo.',
+      platform: analysis?.platform ?? _platformLabel(capture),
+      summary: analysis?.summary ?? capture.text ?? 'A voice memo saved into NanyNany.',
+      whyUseful: analysis?.whyUseful ?? 'You saved this recording because the idea or reference was worth keeping.',
+      useWhen: analysis?.useWhen ?? 'Resurface when a project overlaps with what was discussed in this voice memo.',
       transcript: analysis?.transcript,
-      type: analysis == null
-          ? ResourceType.other
-          : _resourceTypeFromName(analysis.resourceType),
+      type: analysis == null ? ResourceType.other : _resourceTypeFromName(analysis.resourceType),
       topics: analysis?.topics ?? const ['voice note'],
       technologies: analysis?.technologies ?? const [],
-      savedAt: now,
+      savedAt: capture.capturedAt,
     );
     await ResourceStore.save(resource);
 
@@ -185,7 +215,7 @@ class IncomingShareService {
           resourceId: resource.id,
           fileName: name,
           bytes: bytes,
-          contentType: _audioContentType(name),
+          contentType: capture.mimeType ?? _audioContentType(name),
         );
         if (assetPath != null) {
           resource = resource.copyWith(assetPath: assetPath);
@@ -196,35 +226,54 @@ class IncomingShareService {
     return true;
   }
 
-  static Future<bool> _saveFile(SharedMediaFile item) async {
-    final now = DateTime.now();
+  static Future<bool> _saveFile(MemoryCapture capture) async {
+    final path = capture.localPath;
+    if (path == null) return false;
     await ResourceStore.save(
       Resource(
-        id: now.microsecondsSinceEpoch.toString(),
-        title: _fileName(item.path, fallback: 'Shared file'),
-        platform: 'Shared file',
-        summary: 'A file shared into Resource Memory for future reference.',
-        whyUseful: 'You chose to keep this file for a future learning or building context.',
-        useWhen: 'Resurface when a project or learning goal overlaps with this file.',
+        id: capture.id,
+        title: capture.title ?? _fileName(path, fallback: 'Shared file'),
+        platform: _platformLabel(capture),
+        summary: capture.text ?? 'A file saved into NanyNany for future reference.',
+        whyUseful: 'You chose to keep this for a future learning, planning, or building context.',
+        useWhen: 'Resurface when a project or goal overlaps with this memory.',
         type: ResourceType.other,
-        topics: const ['shared file'],
-        savedAt: now,
+        topics: [_topicLabel(capture)],
+        savedAt: capture.capturedAt,
       ),
     );
     return true;
   }
 
-  static ResourceType _resourceTypeFromName(String value) {
-    return ResourceType.values.firstWhere(
-      (type) => type.name == value,
-      orElse: () => ResourceType.other,
-    );
-  }
+  static String _platformLabel(MemoryCapture capture) => switch (capture.kind) {
+        MemoryCaptureKind.email => 'Email',
+        MemoryCaptureKind.calendar => 'Calendar',
+        MemoryCaptureKind.message => 'Message',
+        MemoryCaptureKind.audio => 'Voice memo',
+        MemoryCaptureKind.image => 'Shared image',
+        MemoryCaptureKind.video => 'Shared video',
+        MemoryCaptureKind.file => 'Shared file',
+        _ => 'Shared text',
+      };
 
-  static bool _isAudioPath(String path) {
-    return RegExp(r'\.(m4a|mp3|wav|ogg|opus|webm|aac|flac)$', caseSensitive: false)
-        .hasMatch(path.split('?').first);
-  }
+  static String _topicLabel(MemoryCapture capture) => switch (capture.kind) {
+        MemoryCaptureKind.email => 'email',
+        MemoryCaptureKind.calendar => 'calendar',
+        MemoryCaptureKind.message => 'message',
+        MemoryCaptureKind.video => 'video',
+        MemoryCaptureKind.file => 'shared file',
+        _ => 'shared text',
+      };
+
+  static ResourceType _resourceTypeFromName(String value) => ResourceType.values.firstWhere(
+        (type) => type.name == value,
+        orElse: () => ResourceType.other,
+      );
+
+  static bool _isAudioPath(String path) => RegExp(
+        r'\.(m4a|mp3|wav|ogg|opus|webm|aac|flac)$',
+        caseSensitive: false,
+      ).hasMatch(path.split('?').first);
 
   static String _audioContentType(String name) {
     final lower = name.toLowerCase();
@@ -252,9 +301,8 @@ class IncomingShareService {
     return match.group(0)?.replaceAll(RegExp(r'[),.;]+$'), '');
   }
 
-  static bool _alreadySaved(String url) {
-    return ResourceStore.getAll().any((resource) => resource.url == url);
-  }
+  static bool _alreadySaved(String url) =>
+      ResourceStore.getAll().any((resource) => resource.url == url);
 
   static String _titleFromText(String text) {
     final normalized = text.replaceAll(RegExp(r'\s+'), ' ').trim();
