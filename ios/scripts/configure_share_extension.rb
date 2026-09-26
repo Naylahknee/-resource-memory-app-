@@ -81,9 +81,11 @@ unless extension_package
 end
 
 unless extension.frameworks_build_phase.files.any? do |build_file|
-  build_file.product_ref == extension_package
+  build_file.respond_to?(:product_ref) && build_file.product_ref == extension_package
 end
-  build_file = extension.frameworks_build_phase.new_product_ref_for_target('FlutterGeneratedPluginSwiftPackage', extension_package)
+  build_file = project.new(Xcodeproj::Project::Object::PBXBuildFile)
+  build_file.product_ref = extension_package
+  extension.frameworks_build_phase.files << build_file
 end
 
 # Runner must build and embed the extension.
