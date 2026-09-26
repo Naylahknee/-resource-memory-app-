@@ -63,6 +63,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Enable Flutter Swift Package Manager
+        run: flutter config --enable-swift-package-manager
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -70,13 +73,22 @@ jobs:
         working-directory: ios
         run: pod install
 
-      - name: Configure native Share Extension target
+      - name: Generate Flutter iOS and SPM configuration
+        run: >-
+          flutter build ios --config-only --release --no-codesign
+          --dart-define=RESOURCE_API_URL=${{ secrets.RESOURCE_API_URL }}
+
+      - name: Configure native Share Extension target and SPM dependency
         working-directory: ios
         run: ruby scripts/configure_share_extension.rb
 
       - name: Verify Share Extension target exists
         working-directory: ios
         run: xcodebuild -project Runner.xcodeproj -list | grep -q ShareExtension
+
+      - name: Verify Share Extension links Flutter plugin package
+        working-directory: ios
+        run: grep -q FlutterGeneratedPluginSwiftPackage Runner.xcodeproj/project.pbxproj
 
       - name: Build iOS without signing
         run: >-
