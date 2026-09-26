@@ -34,6 +34,11 @@ unless extension.resources_build_phase.files_references.include?(storyboard)
   extension.resources_build_phase.add_file_reference(storyboard)
 end
 
+runner_bundle_id = runner.build_configurations.map { |config| config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] }
+  .compact
+  .find { |value| !value.to_s.empty? } || 'com.example.taskee'
+extension_bundle_id = "#{runner_bundle_id}.ShareExtension"
+
 extension.build_configurations.each do |config|
   settings = config.build_settings
   settings['APPLICATION_EXTENSION_API_ONLY'] = 'YES'
@@ -45,7 +50,7 @@ extension.build_configurations.each do |config|
   settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
   settings['LD_RUNPATH_SEARCH_PATHS'] = ['$(inherited)', '@executable_path/Frameworks', '@executable_path/../../Frameworks']
   settings['MARKETING_VERSION'] = '$(FLUTTER_BUILD_NAME)'
-  settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.naylahknee.nanynany.ShareExtension'
+  settings['PRODUCT_BUNDLE_IDENTIFIER'] = extension_bundle_id
   settings['PRODUCT_NAME'] = '$(TARGET_NAME)'
   settings['SKIP_INSTALL'] = 'YES'
   settings['SWIFT_VERSION'] = '5.0'
@@ -113,4 +118,4 @@ if thin_index && embed_index && embed_index > thin_index
 end
 
 project.save
-puts 'ShareExtension target configured and Flutter SPM package linked.'
+puts "ShareExtension configured with bundle id #{extension_bundle_id} and Flutter SPM package linked."
