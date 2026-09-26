@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # Idempotently wires the checked-in ShareExtension sources into Runner.xcodeproj.
-# Keeping this as code makes the native target reproducible on CI and on any
-# future Mac/Xcode environment instead of relying on hand-edited project IDs.
+# Run this after Flutter has generated its Swift Package Manager integration so
+# the extension can link the same FlutterGeneratedPluginSwiftPackage as Runner.
 
 require 'xcodeproj'
 
@@ -13,7 +13,7 @@ runner = project.targets.find { |target| target.name == 'Runner' }
 raise 'Runner target not found' unless runner
 
 extension = project.targets.find { |target| target.name == 'ShareExtension' }
-extension ||= project.new_target(:app_extension, 'ShareExtension', :ios, '14.0')
+extension ||= project.new_target(:app_extension, 'ShareExtension', :ios, '15.0')
 
 main_group = project.main_group
 share_group = main_group.find_subpath('ShareExtension', true)
@@ -42,7 +42,7 @@ extension.build_configurations.each do |config|
   settings['CURRENT_PROJECT_VERSION'] = '$(FLUTTER_BUILD_NUMBER)'
   settings['GENERATE_INFOPLIST_FILE'] = 'NO'
   settings['INFOPLIST_FILE'] = 'ShareExtension/Info.plist'
-  settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+  settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
   settings['LD_RUNPATH_SEARCH_PATHS'] = ['$(inherited)', '@executable_path/Frameworks', '@executable_path/../../Frameworks']
   settings['MARKETING_VERSION'] = '$(FLUTTER_BUILD_NAME)'
   settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.naylahknee.nanynany.ShareExtension'
@@ -54,6 +54,36 @@ end
 
 runner.build_configurations.each do |config|
   config.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'Runner/Runner.entitlements'
+  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+end
+
+# receive_sharing_intent 1.9 is SPM-only. Flutter generates a local aggregate
+# product called FlutterGeneratedPluginSwiftPackage and links it to Runner.
+# The Share Extension imports RSIShareViewController, so it must explicitly link
+# that same product as well.
+flutter_package = runner.package_product_dependencies.find do |dependency|
+  dependency.product_name == 'FlutterGeneratedPluginSwiftPackage'
+end
+
+unless flutter_package
+  raise 'FlutterGeneratedPluginSwiftPackage not found. Run Flutter iOS config generation before this script.'
+end
+
+extension_package = extension.package_product_dependencies.find do |dependency|
+  dependency.product_name == flutter_package.product_name
+end
+
+unless extension_package
+  extension_package = project.new(Xcodeproj::Project::Object::XCSwiftPackageProductDependency)
+  extension_package.product_name = flutter_package.product_name
+  extension_package.package = flutter_package.package
+  extension.package_product_dependencies << extension_package
+end
+
+unless extension.frameworks_build_phase.files.any? do |build_file|
+  build_file.product_ref == extension_package
+end
+  build_file = extension.frameworks_build_phase.new_product_ref_for_target('FlutterGeneratedPluginSwiftPackage', extension_package)
 end
 
 # Runner must build and embed the extension.
@@ -71,5 +101,14 @@ unless embed_phase.files_references.include?(extension.product_reference)
   build_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
 end
 
+# Keep extension embedding ahead of Flutter's Thin Binary phase to avoid the
+# dependency cycle documented by receive_sharing_intent.
+thin_index = runner.build_phases.index { |phase| phase.respond_to?(:name) && phase.name == 'Thin Binary' }
+embed_index = runner.build_phases.index(embed_phase)
+if thin_index && embed_index && embed_index > thin_index
+  runner.build_phases.delete(embed_phase)
+  runner.build_phases.insert(thin_index, embed_phase)
+end
+
 project.save
-puts 'ShareExtension target configured.'
+puts 'ShareExtension target configured and Flutter SPM package linked.'
