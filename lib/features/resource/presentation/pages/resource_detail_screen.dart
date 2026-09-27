@@ -163,6 +163,10 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                         onLoad: _loadAsset,
                       ),
                     ],
+                    if (resource.type == ResourceType.session && resource.session != null) ...[
+                      const SizedBox(height: 20),
+                      _SessionMemoryCard(session: resource.session!),
+                    ],
                     const SizedBox(height: 20),
                     _field('Title', _title),
                     _linkField(context),
@@ -326,6 +330,113 @@ class _SyncedAssetCard extends StatelessWidget {
                 label: Text(loading ? 'Loading…' : (isVoice ? 'Load voice note' : 'Load synced file')),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionMemoryCard extends StatelessWidget {
+  const _SessionMemoryCard({required this.session});
+
+  final Map<String, dynamic> session;
+
+  List<Map<String, dynamic>> get groups {
+    final raw = session['groups'];
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  List<Map<String, dynamic>> _tabs(Map<String, dynamic> group) {
+    final raw = group['tabs'];
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  Future<void> _openAll(BuildContext context, List<Map<String, dynamic>> tabs) async {
+    for (final tab in tabs) {
+      final url = tab['url']?.toString();
+      if (url != null && url.isNotEmpty) {
+        await ResourceLinkService.open(context, url);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final capturedAt = DateTime.tryParse(session['capturedAt']?.toString() ?? '');
+    final total = session['tabCount'] ?? groups.fold<int>(0, (sum, group) => sum + _tabs(group).length);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.kBorderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.tab_rounded),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Saved tab session', style: AppTypography.h3)),
+              Text('$total tabs', style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+            ],
+          ),
+          if (capturedAt != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Captured ${capturedAt.toLocal()}',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+          const SizedBox(height: 16),
+          for (final group in groups) ...[
+            Builder(builder: (context) {
+              final tabs = _tabs(group);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            group['title']?.toString() ?? 'Tab group',
+                            style: AppTypography.labelLg,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: tabs.isEmpty ? null : () => _openAll(context, tabs),
+                          child: const Text('Open all'),
+                        ),
+                      ],
+                    ),
+                    if ((group['whatYouWereDoing']?.toString() ?? '').isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          group['whatYouWereDoing'].toString(),
+                          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    for (final tab in tabs)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: Text(tab['title']?.toString() ?? 'Untitled tab', maxLines: 2, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(tab['url']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
+                        trailing: const Icon(Icons.open_in_new, size: 18),
+                        onTap: () => ResourceLinkService.open(context, tab['url']?.toString()),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
         ],
       ),
     );
