@@ -335,6 +335,151 @@ async function analyzeAudio(request: Request, env: Env): Promise<Response> {
   }
 }
 
+type SessionTab = {
+  title: string;
+  url: string;
+  windowId?: number;
+  groupId?: number;
+  lastAccessed?: number | null;
+};
+
+function domainLabel(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).hostname.replace(/^www\./, '') || 'Other';
+  } catch {
+    return 'Other';
+  }
+}
+
+function deterministicSessionAnalysis(tabs: SessionTab[]) {
+  const buckets = new Map<string, SessionTab[]>();
+  for (const tab of tabs) {
+    const domain = domainLabel(tab.url);
+    const current = buckets.get(domain) ?? [];
+    current.push(tab);
+    buckets.set(domain, current);
+  }
+
+  const groups = [...buckets.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 6)
+    .map(([domain, groupTabs]) => ({
+      title: domain,
+      whatYouWereDoing: `${groupTabs.length} tab${groupTabs.length === 1 ? '' : 's'} open here`,
+      tabs: groupTabs.map(({ title, url }) => ({ title, url })),
+    }));
+
+  return {
+    title: groups.slice(0, 3).map((group) => group.title).join(', ') || 'Tab session',
+    summary: `${groups.length} things in progress across ${tabs.length} tabs`,
+    groups,
+  };
+}
+
+async function analyzeSession(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const tabs = Array.isArray(body.tabs)
+    ? body.tabs
+        .map((raw: any) => ({
+          title: String(raw?.title ?? '').trim(),
+          url: String(raw?.url ?? '').trim(),
+          windowId: Number.isFinite(raw?.windowId) ? Number(raw.windowId) : undefined,
+          groupId: Number.isFinite(raw?.groupId) ? Number(raw.groupId) : undefined,
+          lastAccessed: Number.isFinite(raw?.lastAccessed) ? Number(raw.lastAccessed) : null,
+        }))
+        .filter((tab: SessionTab) => tab.title && /^https?:\/\//i.test(tab.url))
+    : [];
+
+  if (!tabs.length) throw new ResponseError(400, 'At least one browser tab is required.');
+  if (tabs.length > 500) throw new ResponseError(413, 'Too many tabs in one session.');
+
+  const fallback = deterministicSessionAnalysis(tabs);
+  if (!env.OPENAI_API_KEY) return json(fallback);
+
+  const openAiResponse = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-5-mini',
+      input: [
+        {
+          role: 'system',
+          content: [{
+            type: 'input_text',
+            text: 'You group browser tabs into 1 to 6 memory-oriented work contexts for NanyNany. Use only the supplied titles and privacy-safe URLs. Do not infer deadlines, tasks, private facts, or page content. Explain what the user appears to have been doing in concise, neutral language. Every input tab must appear in exactly one group.',
+          }],
+        },
+        {
+          role: 'user',
+          content: [{
+            type: 'input_text',
+            text: `Group this browser session for later retrieval:\n\n${JSON.stringify(tabs)}`,
+          }],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'tab_session_analysis',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['title', 'summary', 'groups'],
+            properties: {
+              title: { type: 'string' },
+              summary: { type: 'string' },
+              groups: {
+                type: 'array',
+                minItems: 1,
+                maxItems: 6,
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['title', 'whatYouWereDoing', 'tabs'],
+                  properties: {
+                    title: { type: 'string' },
+                    whatYouWereDoing: { type: 'string' },
+                    tabs: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['title', 'url'],
+                        properties: {
+                          title: { type: 'string' },
+                          url: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+  });
+
+  const payload = (await openAiResponse.json()) as Record<string, any>;
+  if (!openAiResponse.ok || typeof payload.output_text !== 'string') {
+    console.error('OpenAI session analysis failed', payload);
+    return json(fallback);
+  }
+
+  try {
+    const parsed = JSON.parse(payload.output_text);
+    if (!Array.isArray(parsed.groups) || !parsed.groups.length) return json(fallback);
+    return json(parsed);
+  } catch {
+    return json(fallback);
+  }
+}
+
 class ResponseError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -418,6 +563,11 @@ export default {
       if (request.method === 'POST' && path === '/analyze-audio') {
         await requireUser(request, sql);
         return analyzeAudio(request, env);
+      }
+
+      if (request.method === 'POST' && path === '/analyze-session') {
+        await requireUser(request, sql);
+        return analyzeSession(request, env);
       }
 
       if (request.method === 'GET' && path === '/resources') {
