@@ -7,6 +7,7 @@ enum ResourceType {
   tool,
   tutorial,
   code,
+  session,
   other,
 }
 
@@ -32,6 +33,7 @@ class Resource {
     this.thumbnail,
     this.assetPath,
     this.transcript,
+    this.session,
     this.type = ResourceType.other,
     this.status = ResourceStatus.saved,
     this.topics = const [],
@@ -50,6 +52,7 @@ class Resource {
   final String? thumbnail;
   final String? assetPath;
   final String? transcript;
+  final Map<String, dynamic>? session;
   final ResourceType type;
   final ResourceStatus status;
   final List<String> topics;
@@ -67,7 +70,28 @@ class Resource {
         transcript,
         ...topics,
         ...technologies,
+        if (session != null) _sessionSearchText(session!),
       ].whereType<String>().join(' ').toLowerCase();
+
+  static String _sessionSearchText(Map<String, dynamic> session) {
+    final groups = session['groups'];
+    if (groups is! List) return '';
+    return groups.expand<String>((raw) {
+      if (raw is! Map) return const <String>[];
+      final group = Map<String, dynamic>.from(raw);
+      final tabs = group['tabs'];
+      return <String>[
+        group['title']?.toString() ?? '',
+        group['whatYouWereDoing']?.toString() ?? '',
+        if (tabs is List)
+          ...tabs.expand<String>((tabRaw) {
+            if (tabRaw is! Map) return const <String>[];
+            final tab = Map<String, dynamic>.from(tabRaw);
+            return [tab['title']?.toString() ?? '', tab['url']?.toString() ?? ''];
+          }),
+      ];
+    }).join(' ');
+  }
 
   Resource copyWith({
     String? title,
@@ -80,6 +104,7 @@ class Resource {
     String? thumbnail,
     String? assetPath,
     String? transcript,
+    Map<String, dynamic>? session,
     ResourceType? type,
     ResourceStatus? status,
     List<String>? topics,
@@ -98,6 +123,7 @@ class Resource {
       thumbnail: thumbnail ?? this.thumbnail,
       assetPath: assetPath ?? this.assetPath,
       transcript: transcript ?? this.transcript,
+      session: session ?? this.session,
       type: type ?? this.type,
       status: status ?? this.status,
       topics: topics ?? this.topics,
@@ -119,6 +145,7 @@ class Resource {
         'thumbnail': thumbnail,
         'assetPath': assetPath,
         'transcript': transcript,
+        'session': session,
         'type': type.name,
         'status': status.name,
         'topics': topics,
@@ -140,6 +167,7 @@ class Resource {
       thumbnail: map['thumbnail'] as String?,
       assetPath: map['assetPath'] as String?,
       transcript: map['transcript'] as String?,
+      session: map['session'] is Map ? Map<String, dynamic>.from(map['session'] as Map) : null,
       type: ResourceType.values.firstWhere(
         (value) => value.name == map['type'],
         orElse: () => ResourceType.other,
