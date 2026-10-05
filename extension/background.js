@@ -93,6 +93,36 @@ async function capture(windowOnly) {
   return { resource, tabIds: tabs.map(tab => tab.tabId).filter(Number.isInteger) };
 }
 
+async function listSessions() {
+  const { exclusions } = await settings();
+  const payload = await api('/resources');
+  const resources = Array.isArray(payload.resources) ? payload.resources : [];
+  const byDate = value => String(value || '');
+  return resources
+    .filter(resource => resource && resource.type === 'session' && resource.session)
+    .sort((a, b) => byDate(b.session.capturedAt || b.savedAt).localeCompare(byDate(a.session.capturedAt || a.savedAt)))
+    .map(resource => {
+      const groups = (resource.session.groups || [])
+        .map(group => ({
+          title: group.title || 'Tabs',
+          tabs: (group.tabs || [])
+            .filter(tab => isCapturable(tab && tab.url, exclusions))
+            .map(tab => ({ title: tab.title || tab.url || 'Untitled tab', url: tab.url })),
+        }))
+        .filter(group => group.tabs.length);
+      const tabCount = groups.reduce((sum, group) => sum + group.tabs.length, 0);
+      return {
+        id: resource.id,
+        title: resource.title || 'Tab session',
+        summary: resource.summary || '',
+        capturedAt: resource.session.capturedAt || resource.savedAt || '',
+        tabCount,
+        groups,
+      };
+    })
+    .filter(session => session.tabCount > 0);
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'capture-session') {
     capture(Boolean(message.windowOnly)).then(result => sendResponse({ ok: true, ...result })).catch(error => sendResponse({ ok: false, error: error.message }));
@@ -100,6 +130,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message?.type === 'close-captured-tabs') {
     chrome.tabs.remove((message.tabIds || []).filter(Number.isInteger)).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (message?.type === 'list-sessions') {
+    listSessions()
+      .then(sessions => sendResponse({ ok: true, sessions }))
+      .catch(error => sendResponse({ ok: false, error: error.message, needsSignIn: /sign in/i.test(error.message) }));
     return true;
   }
 });
