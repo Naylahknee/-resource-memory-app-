@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 
 interface Env {
   DATABASE_URL: string;
@@ -66,7 +66,7 @@ async function readJson(request: Request): Promise<Record<string, any>> {
   }
 }
 
-async function issueSession(sql: ReturnType<typeof neon>, userId: string): Promise<string> {
+async function issueSession(sql: SqlClient, userId: string): Promise<string> {
   const token = `${crypto.randomUUID()}${crypto.randomUUID().replaceAll('-', '')}`;
   const tokenHash = await hashToken(token);
   await sql`
@@ -76,7 +76,7 @@ async function issueSession(sql: ReturnType<typeof neon>, userId: string): Promi
   return token;
 }
 
-async function requireUser(request: Request, sql: ReturnType<typeof neon>): Promise<string> {
+async function requireUser(request: Request, sql: SqlClient): Promise<string> {
   const auth = request.headers.get('authorization') ?? '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token) throw new ResponseError(401, 'Authentication required.');
@@ -480,6 +480,508 @@ async function analyzeSession(request: Request, env: Env): Promise<Response> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Semantic search: hybrid lexical + vector retrieval over the resources table.
+// Writes build search_text and (when an OpenAI key is configured) a pgvector
+// embedding. Reads combine full-text rank and vector similarity with a light
+// recency rerank. Every step degrades gracefully when the key or the
+// 002_memory_search.sql migration is missing.
+// ---------------------------------------------------------------------------
+
+const EMBEDDING_MODEL = 'text-embedding-3-small';
+const EMBEDDING_DIMS = 1536;
+const EMBED_INPUT_CHARS = 6000;
+
+type SqlClient = NeonQueryFunction<false, false>;
+
+function asRows(result: unknown): Record<string, any>[] {
+  return (result ?? []) as unknown as Record<string, any>[];
+}
+
+export function asText(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter(Boolean)
+      .join(' ');
+  }
+  return '';
+}
+
+export function sessionSearchText(session: unknown): string {
+  if (!session || typeof session !== 'object') return '';
+  const groups = (session as { groups?: unknown }).groups;
+  if (!Array.isArray(groups)) return '';
+  const parts: string[] = [];
+  for (const raw of groups) {
+    if (!raw || typeof raw !== 'object') continue;
+    const group = raw as { title?: unknown; whatYouWereDoing?: unknown; tabs?: unknown };
+    parts.push(asText(group.title), asText(group.whatYouWereDoing));
+    if (Array.isArray(group.tabs)) {
+      for (const tabRaw of group.tabs) {
+        if (!tabRaw || typeof tabRaw !== 'object') continue;
+        const tab = tabRaw as { title?: unknown; url?: unknown };
+        parts.push(asText(tab.title), asText(tab.url));
+      }
+    }
+  }
+  return parts.filter(Boolean).join(' ');
+}
+
+// Mirrors the Flutter Resource.searchableText getter so server-side lexical
+// search covers the same fields the client used to search locally.
+export function buildSearchText(data: Record<string, any>): string {
+  return [
+    asText(data.title),
+    asText(data.creator),
+    asText(data.platform),
+    asText(data.summary),
+    asText(data.whyUseful),
+    asText(data.useWhen),
+    asText(data.transcript),
+    asText(data.topics),
+    asText(data.technologies),
+    asText(data.url),
+    sessionSearchText(data.session),
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+export function vectorLiteral(vector: number[]): string {
+  return `[${vector.join(',')}]`;
+}
+
+async function embedTexts(texts: string[], apiKey: string): Promise<(number[] | null)[]> {
+  if (!texts.length) return [];
+  const inputs = texts.map((text) => text.slice(0, EMBED_INPUT_CHARS));
+  try {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input: inputs }),
+    });
+    const payload = (await response.json()) as Record<string, any>;
+    if (!response.ok || !Array.isArray(payload?.data)) {
+      console.error('OpenAI embeddings failed', payload);
+      return inputs.map(() => null);
+    }
+    const byIndex = new Map<number, number[]>();
+    for (const row of payload.data) {
+      if (
+        Number.isInteger(row?.index) &&
+        Array.isArray(row?.embedding) &&
+        row.embedding.length === EMBEDDING_DIMS
+      ) {
+        byIndex.set(row.index, row.embedding);
+      }
+    }
+    return inputs.map((_, i) => byIndex.get(i) ?? null);
+  } catch (error) {
+    console.error('OpenAI embeddings request failed', error);
+    return inputs.map(() => null);
+  }
+}
+
+interface IndexState {
+  search_text: string | null;
+  has_embedding: boolean;
+}
+
+function isMissingSearchColumn(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('search_text') && message.includes('does not exist');
+}
+
+async function loadExistingIndex(
+  sql: SqlClient,
+  userId: string,
+  ids: string[],
+): Promise<Map<string, IndexState> | null> {
+  try {
+    const rows = await sql`
+      select id, search_text, (embedding is not null) as has_embedding
+      from resources
+      where user_id = ${userId} and id = any(${ids})
+    `;
+    const map = new Map<string, IndexState>();
+    for (const row of asRows(rows)) {
+      map.set(String(row.id), {
+        search_text: typeof row.search_text === 'string' ? row.search_text : null,
+        has_embedding: Boolean(row.has_embedding),
+      });
+    }
+    return map;
+  } catch (error) {
+    if (isMissingSearchColumn(error)) return null;
+    throw error;
+  }
+}
+
+export interface IndexPlan {
+  searchText: string;
+  sourceType: string | null;
+  resourceType: string | null;
+  needsEmbedding: boolean;
+  staleEmbedding: boolean;
+  vector: string | null;
+}
+
+export function planIndex(data: Record<string, any>, existing?: IndexState): IndexPlan {
+  const searchText = buildSearchText(data);
+  const searchChanged = !existing || (existing.search_text ?? '') !== searchText;
+  return {
+    searchText,
+    sourceType: asText(data.platform) || null,
+    resourceType: asText(data.type) || null,
+    needsEmbedding: Boolean(searchText) && (searchChanged || !existing?.has_embedding),
+    staleEmbedding: searchChanged && Boolean(existing?.has_embedding),
+    vector: null,
+  };
+}
+
+async function fillEmbeddings(plans: IndexPlan[], apiKey: string | undefined): Promise<void> {
+  const targets = plans.filter((plan) => plan.needsEmbedding && !plan.vector);
+  if (!targets.length || !apiKey) return;
+  const vectors = await embedTexts(
+    targets.map((plan) => plan.searchText),
+    apiKey,
+  );
+  targets.forEach((plan, i) => {
+    const vector = vectors[i];
+    if (vector && vector.length === EMBEDDING_DIMS) plan.vector = vectorLiteral(vector);
+  });
+}
+
+async function writeIndexedResource(
+  sql: SqlClient,
+  userId: string,
+  id: string,
+  data: unknown,
+  plan: IndexPlan | null,
+): Promise<void> {
+  const payload = JSON.stringify(data);
+  if (!plan) {
+    // Migration 002 not applied: keep the legacy write shape working.
+    await sql`
+      insert into resources (user_id, id, data, updated_at)
+      values (${userId}, ${id}, ${payload}::jsonb, now())
+      on conflict (user_id, id)
+      do update set data = excluded.data, updated_at = now()
+    `;
+    return;
+  }
+  await sql`
+    insert into resources (user_id, id, data, search_text, source_type, resource_type, updated_at)
+    values (${userId}, ${id}, ${payload}::jsonb, ${plan.searchText || null}, ${plan.sourceType}, ${plan.resourceType}, now())
+    on conflict (user_id, id)
+    do update set
+      data = excluded.data,
+      search_text = excluded.search_text,
+      source_type = excluded.source_type,
+      resource_type = excluded.resource_type,
+      updated_at = now()
+  `;
+  if (plan.vector) {
+    await sql`
+      update resources
+      set embedding = ${plan.vector}::vector, embedding_model = ${EMBEDDING_MODEL}
+      where user_id = ${userId} and id = ${id}
+    `;
+  } else if (plan.staleEmbedding) {
+    await sql`
+      update resources
+      set embedding = null, embedding_model = null
+      where user_id = ${userId} and id = ${id}
+    `;
+  }
+}
+
+interface SearchHit {
+  id: string;
+  data: unknown;
+  lex: number;
+  vec: number;
+  ageDays: number;
+  snippet: string;
+}
+
+function toSearchHit(row: Record<string, any>): SearchHit {
+  return {
+    id: String(row.id),
+    data: row.data,
+    lex: Number(row.lex_score) || 0,
+    vec: Number(row.vec_score) || 0,
+    ageDays: Math.max(0, Number(row.age_days) || 0),
+    snippet: String(row.snippet ?? ''),
+  };
+}
+
+async function hybridSearch(
+  sql: SqlClient,
+  userId: string,
+  query: string,
+  queryVec: string,
+  types: string[],
+): Promise<SearchHit[]> {
+  const hasTypes = types.length > 0;
+  const rows = await sql`
+    with lex_hits as (
+      select id,
+        ts_rank_cd(
+          to_tsvector('english', coalesce(search_text, '')),
+          plainto_tsquery('english', ${query})
+        ) as lex_score
+      from resources
+      where user_id = ${userId}
+        and coalesce(search_text, '') <> ''
+        and to_tsvector('english', coalesce(search_text, '')) @@ plainto_tsquery('english', ${query})
+      order by lex_score desc
+      limit 100
+    ),
+    vec_hits as (
+      select id, 1 - (embedding <=> ${queryVec}::vector) as vec_score
+      from resources
+      where user_id = ${userId}
+        and embedding is not null
+      order by embedding <=> ${queryVec}::vector
+      limit 100
+    ),
+    combined as (
+      select coalesce(l.id, v.id) as id,
+        coalesce(l.lex_score, 0) as lex_score,
+        coalesce(v.vec_score, 0) as vec_score
+      from lex_hits l
+      full outer join vec_hits v on l.id = v.id
+    )
+    select r.id, r.data, c.lex_score, c.vec_score,
+      extract(epoch from (now() - r.updated_at)) / 86400.0 as age_days,
+      ts_headline(
+        'english', coalesce(r.search_text, ''),
+        plainto_tsquery('english', ${query}),
+        'MaxWords=30, MinWords=12, MaxFragments=2'
+      ) as snippet
+    from combined c
+    join resources r on r.user_id = ${userId} and r.id = c.id
+    where (${hasTypes} = false or r.resource_type = any(${types}))
+  `;
+  return asRows(rows).map(toSearchHit);
+}
+
+async function lexicalSearch(
+  sql: SqlClient,
+  userId: string,
+  query: string,
+  types: string[],
+  limit: number,
+): Promise<SearchHit[]> {
+  const hasTypes = types.length > 0;
+  const rows = await sql`
+    select r.id, r.data,
+      ts_rank_cd(
+        to_tsvector('english', coalesce(r.search_text, '')),
+        plainto_tsquery('english', ${query})
+      ) as lex_score,
+      0 as vec_score,
+      extract(epoch from (now() - r.updated_at)) / 86400.0 as age_days,
+      ts_headline(
+        'english', coalesce(r.search_text, ''),
+        plainto_tsquery('english', ${query}),
+        'MaxWords=30, MinWords=12, MaxFragments=2'
+      ) as snippet
+    from resources r
+    where r.user_id = ${userId}
+      and coalesce(r.search_text, '') <> ''
+      and to_tsvector('english', coalesce(r.search_text, '')) @@ plainto_tsquery('english', ${query})
+      and (${hasTypes} = false or r.resource_type = any(${types}))
+    order by lex_score desc
+    limit ${limit}
+  `;
+  return asRows(rows).map(toSearchHit);
+}
+
+async function legacyKeywordSearch(
+  sql: SqlClient,
+  userId: string,
+  query: string,
+  limit: number,
+): Promise<SearchHit[]> {
+  const rows = await sql`
+    select id, data, 0.4 as lex_score, 0 as vec_score,
+      extract(epoch from (now() - updated_at)) / 86400.0 as age_days,
+      '' as snippet
+    from resources
+    where user_id = ${userId} and data::text ilike ${'%' + query + '%'}
+    order by updated_at desc
+    limit ${limit}
+  `;
+  return asRows(rows).map(toSearchHit);
+}
+
+export function matchedTerms(snippet: string): string[] {
+  const terms = new Set<string>();
+  const pattern = /<b>(.*?)<\/b>/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(snippet)) !== null) {
+    const term = match[1].replace(/<[^>]*>/g, '').trim().toLowerCase();
+    if (term) terms.add(term);
+    if (terms.size >= 6) break;
+  }
+  return [...terms];
+}
+
+export function explainHit(
+  hit: { lex: number; vec: number; ageDays: number; semantic: boolean },
+  terms: string[],
+): string[] {
+  const why: string[] = [];
+  if (terms.length) {
+    why.push(`Matches: ${terms.slice(0, 4).join(', ')}`);
+  } else if (hit.lex >= 0.2) {
+    why.push('Matches your search words');
+  }
+  if (hit.semantic && hit.vec >= 0.55) why.push('Similar in meaning to your search');
+  if (hit.ageDays <= 14) why.push('Saved recently');
+  return why;
+}
+
+async function handleSearch(
+  request: Request,
+  sql: SqlClient,
+  userId: string,
+  apiKey: string | undefined,
+): Promise<Response> {
+  const body = await readJson(request);
+  const query = String(body.query ?? '').trim();
+  if (!query) throw new ResponseError(400, 'A search query is required.');
+  if (query.length > 500) throw new ResponseError(400, 'Search query is too long.');
+  const rawLimit = Number(body.limit);
+  const limit = Math.min(50, Math.max(1, Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 10));
+  const types = (Array.isArray(body.types) ? body.types : [])
+    .map((entry) => String(entry).trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  let queryVec: string | null = null;
+  if (apiKey) {
+    const vectors = await embedTexts([query], apiKey);
+    const first = vectors[0];
+    if (first && first.length === EMBEDDING_DIMS) queryVec = vectorLiteral(first);
+  }
+
+  let hits: SearchHit[];
+  let semantic = Boolean(queryVec);
+  try {
+    hits = queryVec
+      ? await hybridSearch(sql, userId, query, queryVec, types)
+      : await lexicalSearch(sql, userId, query, types, limit);
+  } catch (error) {
+    if (!isMissingSearchColumn(error)) throw error;
+    semantic = false;
+    hits = await legacyKeywordSearch(sql, userId, query, limit);
+  }
+
+  const scored = hits
+    .map((hit) => {
+      const lex = Math.min(1, Math.max(0, hit.lex));
+      const vec = Math.min(1, Math.max(0, hit.vec));
+      const recency = 1 / (1 + hit.ageDays / 45);
+      const score = semantic ? 0.45 * vec + 0.35 * lex + 0.2 * recency : 0.8 * lex + 0.2 * recency;
+      const terms = matchedTerms(hit.snippet);
+      return {
+        hit,
+        score,
+        terms,
+        why: explainHit({ lex, vec, ageDays: hit.ageDays, semantic }, terms),
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  return json({
+    query,
+    semantic,
+    count: scored.length,
+    results: scored.map((entry) => ({
+      resource: entry.hit.data,
+      score: Math.round(entry.score * 1000) / 1000,
+      snippet: entry.hit.snippet,
+      matchedTerms: entry.terms,
+      why: entry.why,
+    })),
+  });
+}
+
+async function handleReindex(
+  sql: SqlClient,
+  userId: string,
+  apiKey: string | undefined,
+): Promise<Response> {
+  let batch: Record<string, any>[];
+  try {
+    batch = asRows(
+      await sql`
+        select id, data
+        from resources
+        where user_id = ${userId} and (search_text is null or embedding is null)
+        order by updated_at desc
+        limit 100
+      `,
+    );
+  } catch (error) {
+    if (isMissingSearchColumn(error)) {
+      throw new ResponseError(503, 'Search indexing needs migration 002 applied to the database first.');
+    }
+    throw error;
+  }
+
+  let indexed = 0;
+  if (batch.length) {
+    const texts = batch.map((row) => buildSearchText((row.data ?? {}) as Record<string, any>));
+    const vectors = apiKey ? await embedTexts(texts, apiKey) : [];
+    for (let i = 0; i < batch.length; i++) {
+      const row = batch[i];
+      const data = (row.data ?? {}) as Record<string, any>;
+      const vector = vectors[i];
+      const literal = vector && vector.length === EMBEDDING_DIMS ? vectorLiteral(vector) : null;
+      await sql`
+        update resources
+        set search_text = ${texts[i] || null},
+          source_type = ${asText(data.platform) || null},
+          resource_type = ${asText(data.type) || null},
+          embedding = coalesce(${literal}::vector, embedding),
+          embedding_model = case
+            when ${literal}::vector is null then embedding_model
+            else ${EMBEDDING_MODEL}
+          end,
+          updated_at = now()
+        where user_id = ${userId} and id = ${String(row.id)}
+      `;
+      indexed += 1;
+    }
+  }
+
+  const counts = asRows(
+    await sql`
+      select
+        count(*) filter (where search_text is null)::int as pending_search_text,
+        count(*) filter (where embedding is null)::int as pending_embeddings
+      from resources
+      where user_id = ${userId} and (search_text is null or embedding is null)
+    `,
+  );
+  return json({
+    ok: true,
+    indexed,
+    pendingSearchText: Number(counts[0]?.pending_search_text) || 0,
+    pendingEmbeddings: Number(counts[0]?.pending_embeddings) || 0,
+  });
+}
+
 class ResponseError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -502,6 +1004,7 @@ export default {
           service: 'resource-memory-api',
           imageIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
           voiceIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
+          semanticSearchConfigured: Boolean(env.OPENAI_API_KEY),
         });
       }
 
@@ -570,6 +1073,16 @@ export default {
         return analyzeSession(request, env);
       }
 
+      if (request.method === 'POST' && path === '/search') {
+        const userId = await requireUser(request, sql);
+        return await handleSearch(request, sql, userId, env.OPENAI_API_KEY);
+      }
+
+      if (request.method === 'POST' && path === '/reindex') {
+        const userId = await requireUser(request, sql);
+        return await handleReindex(sql, userId, env.OPENAI_API_KEY);
+      }
+
       if (request.method === 'GET' && path === '/resources') {
         const userId = await requireUser(request, sql);
         const rows = await sql`
@@ -585,15 +1098,27 @@ export default {
         const userId = await requireUser(request, sql);
         const body = await readJson(request);
         const resources = Array.isArray(body.resources) ? body.resources : [];
-        for (const item of resources) {
-          const id = String(item?.id ?? '');
-          if (!id) continue;
-          await sql`
-            insert into resources (user_id, id, data, updated_at)
-            values (${userId}, ${id}, ${JSON.stringify(item)}::jsonb, now())
-            on conflict (user_id, id)
-            do update set data = excluded.data, updated_at = now()
-          `;
+        const items = resources
+          .map((item) => ({ id: String(item?.id ?? ''), data: item }))
+          .filter((item) => item.id);
+        const indexable = items.filter((item) => item.data && typeof item.data === 'object');
+        const existing =
+          indexable.length > 0
+            ? await loadExistingIndex(
+                sql,
+                userId,
+                indexable.map((item) => item.id),
+              )
+            : null;
+        const plans = new Map<string, IndexPlan>();
+        for (const item of indexable) {
+          if (existing) {
+            plans.set(item.id, planIndex(item.data as Record<string, any>, existing.get(item.id)));
+          }
+        }
+        await fillEmbeddings([...plans.values()], env.OPENAI_API_KEY);
+        for (const item of items) {
+          await writeIndexedResource(sql, userId, item.id, item.data, plans.get(item.id) ?? null);
         }
         return json({ ok: true, count: resources.length });
       }
@@ -605,12 +1130,10 @@ export default {
         const body = await readJson(request);
         const data = body.data;
         if (!data || typeof data !== 'object') throw new ResponseError(400, 'Resource data is required.');
-        await sql`
-          insert into resources (user_id, id, data, updated_at)
-          values (${userId}, ${id}, ${JSON.stringify(data)}::jsonb, now())
-          on conflict (user_id, id)
-          do update set data = excluded.data, updated_at = now()
-        `;
+        const existing = await loadExistingIndex(sql, userId, [id]);
+        const plan = existing ? planIndex(data as Record<string, any>, existing.get(id)) : null;
+        if (plan) await fillEmbeddings([plan], env.OPENAI_API_KEY);
+        await writeIndexedResource(sql, userId, id, data, plan);
         return json({ ok: true });
       }
 
