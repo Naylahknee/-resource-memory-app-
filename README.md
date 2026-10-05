@@ -25,7 +25,7 @@ Resource Memory is a Flutter app built from the open-source Taskee foundation. T
 - Describe a new project in plain language
 - Rank saved resources against the project context
 - Show why a result matched
-- Taskee-derived dark UI, typography, cards, routing patterns, and local-first structure
+- Dark UI, typography, cards, routing patterns, and local-first structure
 - Web, iOS, and Android shell branding for Resource Memory
 
 ## Product rule
@@ -50,7 +50,7 @@ The app should reduce organizational labor rather than create more tagging work.
 - Flutter / Dart
 - Hive local storage
 - GoRouter
-- Google Fonts / existing Taskee theme system
+- Google Fonts / existing theme system
 - `http` for supported public metadata lookups and optional enrichment API
 - `image_picker` for screenshots
 - `url_launcher` for opening saved resources

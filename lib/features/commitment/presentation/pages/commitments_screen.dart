@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:taskee/app/routing/app_route.dart';
-import 'package:taskee/app/theme/app_colors.dart';
-import 'package:taskee/app/theme/app_typography.dart';
-import 'package:taskee/features/commitment/data/commitment_store.dart';
-import 'package:taskee/features/commitment/data/phone_bridge.dart';
-import 'package:taskee/features/commitment/domain/commitment.dart';
+import 'package:resource_memory/app/routing/app_route.dart';
+import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/app/theme/app_typography.dart';
+import 'package:resource_memory/features/commitment/data/commitment_store.dart';
+import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
+import 'package:resource_memory/features/commitment/domain/commitment.dart';
 
 class CommitmentsScreen extends StatefulWidget {
   const CommitmentsScreen({super.key});

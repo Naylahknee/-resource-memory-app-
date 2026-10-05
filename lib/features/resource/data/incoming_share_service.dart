@@ -1,11 +1,11 @@
 import 'package:cross_file/cross_file.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import 'package:taskee/features/resource/data/cloud_sync_service.dart';
-import 'package:taskee/features/resource/data/resource_enrichment_service.dart';
-import 'package:taskee/features/resource/data/resource_link_service.dart';
-import 'package:taskee/features/resource/data/resource_store.dart';
-import 'package:taskee/features/resource/domain/memory_capture.dart';
-import 'package:taskee/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
+import 'package:resource_memory/features/resource/data/resource_enrichment_service.dart';
+import 'package:resource_memory/features/resource/data/resource_link_service.dart';
+import 'package:resource_memory/features/resource/data/resource_store.dart';
+import 'package:resource_memory/features/resource/domain/memory_capture.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
 
 class IncomingShareService {
   static Future<int> saveSharedItems(List<SharedMediaFile> items) async {

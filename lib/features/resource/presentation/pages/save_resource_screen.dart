@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-import 'package:taskee/app/theme/app_colors.dart';
-import 'package:taskee/app/theme/app_typography.dart';
-import 'package:taskee/features/resource/data/cloud_sync_service.dart';
-import 'package:taskee/features/resource/data/resource_enrichment_service.dart';
-import 'package:taskee/features/resource/data/resource_link_service.dart';
-import 'package:taskee/features/resource/data/resource_store.dart';
-import 'package:taskee/features/resource/domain/resource.dart';
-import 'package:taskee/features/widget/app_gradient.dart';
+import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/app/theme/app_typography.dart';
+import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
+import 'package:resource_memory/features/resource/data/resource_enrichment_service.dart';
+import 'package:resource_memory/features/resource/data/resource_link_service.dart';
+import 'package:resource_memory/features/resource/data/resource_store.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class SaveResourceScreen extends StatefulWidget {
   const SaveResourceScreen({super.key});

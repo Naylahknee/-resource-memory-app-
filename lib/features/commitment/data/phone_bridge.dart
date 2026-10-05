@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:taskee/features/commitment/domain/commitment.dart';
+import 'package:resource_memory/features/commitment/domain/commitment.dart';
 
 class PhoneBridge {
   static const _channel = MethodChannel('com.naylahknee.nanynany/phone');

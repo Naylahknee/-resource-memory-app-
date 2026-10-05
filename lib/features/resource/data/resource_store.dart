@@ -1,6 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:taskee/features/resource/data/cloud_sync_service.dart';
-import 'package:taskee/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
 
 class ResourceStore {
   static const boxName = 'resource_memory_resources';

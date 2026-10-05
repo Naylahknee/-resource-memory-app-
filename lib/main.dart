@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import 'package:taskee/app/routing/go_router.dart';
-import 'package:taskee/app/theme/app_theme.dart';
-import 'package:taskee/features/commitment/data/commitment_store.dart';
-import 'package:taskee/features/commitment/data/phone_bridge.dart';
-import 'package:taskee/features/resource/data/cloud_sync_service.dart';
-import 'package:taskee/features/resource/data/incoming_share_service.dart';
-import 'package:taskee/features/resource/data/resource_store.dart';
+import 'package:resource_memory/app/routing/go_router.dart';
+import 'package:resource_memory/app/theme/app_theme.dart';
+import 'package:resource_memory/features/commitment/data/commitment_store.dart';
+import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
+import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
+import 'package:resource_memory/features/resource/data/incoming_share_service.dart';
+import 'package:resource_memory/features/resource/data/resource_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

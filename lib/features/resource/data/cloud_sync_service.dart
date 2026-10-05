@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:taskee/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
 
 class ImageResourceAnalysis {
   const ImageResourceAnalysis({

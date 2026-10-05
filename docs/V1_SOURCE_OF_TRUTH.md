@@ -32,4 +32,4 @@ Do not build courses, an IDE, a social network, a knowledge graph, complex folde
 Every feature must make it easier to capture useful knowledge or bring that knowledge back when the user needs it.
 
 ## Reuse policy
-Taskee provides the Flutter foundation, navigation/state/local-storage patterns, and notification plumbing. Other Junaid Jamel repositories may be used as references or sources only after their license and implementation fit are checked. The product behavior in this document remains authoritative.
+The original Taskee fork provides the Flutter foundation, navigation/state/local-storage patterns, and notification plumbing. Other Junaid Jamel repositories may be used as references or sources only after their license and implementation fit are checked. The product behavior in this document remains authoritative.
