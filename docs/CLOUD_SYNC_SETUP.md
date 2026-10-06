@@ -107,10 +107,9 @@ Passwords are derived with PBKDF2-SHA256 in the Worker. Session tokens are hashe
 
 Deployed Workers reject PBKDF2 above 100,000 iterations, but local `wrangler dev` does not, so a
 higher count works locally and returns a 500 from `/auth/login` once deployed. New hashes use
-100,000 iterations and are stored as `pbkdf2-sha256$100000$<hex>`. Older accounts hashed with
-120,000 iterations are checked in plain JavaScript and upgraded to the new format on their next
-successful sign-in. If that one-time check is too slow for your plan's CPU limit, set a new
-password directly instead:
+100,000 iterations and are stored as `pbkdf2-sha256$100000$<hex>`. Accounts created before this
+used 120,000 iterations, which the deployed Worker cannot recompute, so `/auth/login` answers them
+with `409` and a reset message. Set a new password directly instead:
 
 ```bash
 node worker/scripts/reset-password-sql.mjs you@example.com 'new password'
