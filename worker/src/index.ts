@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { pbkdf2Sync, randomBytes } from 'node:crypto';
 
 interface Env {
   DATABASE_URL: string;
@@ -41,21 +42,18 @@ async function hashToken(token: string): Promise<string> {
   return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(token)));
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function hashPassword(password: string, saltHex?: string): Promise<{ salt: string; hash: string }> {
-  const saltBytes = saltHex ? fromHex(saltHex) : crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits'],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations: 120000 },
-    key,
-    256,
-  );
-  return { salt: toHex(saltBytes.buffer), hash: toHex(bits) };
+  // NOTE: crypto.subtle PBKDF2 throws in the Workers runtime, so password hashing
+  // uses node:crypto instead. Parameters are identical to the old scheme
+  // (PBKDF2-HMAC-SHA256, 120000 iterations, 32-byte output, hex encoded),
+  // so existing password hashes keep verifying.
+  const saltBytes: Uint8Array = saltHex ? fromHex(saltHex) : randomBytes(16);
+  const derived: Uint8Array = pbkdf2Sync(password, saltBytes, 120000, 32, 'sha256');
+  return { salt: bytesToHex(saltBytes), hash: bytesToHex(derived) };
 }
 
 async function readJson(request: Request): Promise<Record<string, any>> {
