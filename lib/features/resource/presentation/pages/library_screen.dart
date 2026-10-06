@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:taskee/app/routing/app_route.dart';
-import 'package:taskee/app/theme/app_colors.dart';
-import 'package:taskee/app/theme/app_typography.dart';
-import 'package:taskee/features/resource/data/resource_link_service.dart';
-import 'package:taskee/features/resource/data/resource_store.dart';
-import 'package:taskee/features/resource/domain/resource.dart';
-import 'package:taskee/features/widget/app_gradient.dart';
+import 'package:resource_memory/app/routing/app_route.dart';
+import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/app/theme/app_typography.dart';
+import 'package:resource_memory/features/resource/data/resource_link_service.dart';
+import 'package:resource_memory/features/resource/data/resource_store.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -78,7 +78,9 @@ class _FilterChip extends StatelessWidget {
 class _ResourceCard extends StatelessWidget {
   const _ResourceCard({required this.resource});
   final Resource resource;
-  Future<void> _openLink(BuildContext context) => ResourceLinkService.open(context, resource.url);
+  Future<void> _openLink(BuildContext context) async {
+    await ResourceLinkService.open(context, resource.url);
+  }
   void _openMemory(BuildContext context) => context.go('/resource/${resource.id}');
   Future<void> _delete(BuildContext context) async {
     await ResourceStore.remove(resource.id);

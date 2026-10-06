@@ -1,5 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { pbkdf2Sync, randomBytes } from 'node:crypto';
+import { hashPassword, verifyPassword, passwordCryptoSelfTest } from './password';
 
 interface Env {
   DATABASE_URL: string;
@@ -25,10 +25,6 @@ function toHex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function fromHex(value: string): Uint8Array {
-  return new Uint8Array(value.match(/.{1,2}/g)?.map((part) => parseInt(part, 16)) ?? []);
-}
-
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   const chunkSize = 0x8000;
@@ -40,49 +36,6 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 async function hashToken(token: string): Promise<string> {
   return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(token)));
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function hashPassword(password: string, saltHex?: string): Promise<{ salt: string; hash: string }> {
-  // NOTE: crypto.subtle PBKDF2 throws in the Workers runtime, so password hashing
-  // uses node:crypto instead. Parameters are identical to the old scheme
-  // (PBKDF2-HMAC-SHA256, 120000 iterations, 32-byte output, hex encoded),
-  // so existing password hashes keep verifying.
-  const saltBytes: Uint8Array = saltHex ? fromHex(saltHex) : randomBytes(16);
-  const derived: Uint8Array = pbkdf2Sync(password, saltBytes, 120000, 32, 'sha256');
-  return { salt: bytesToHex(saltBytes), hash: bytesToHex(derived) };
-}
-
-// Verifies a password against the stored salt/hash without ever throwing.
-// Supports two formats:
-// - modular: pbkdf2-sha256$<iterations>$<hex> (written by worker/scripts/reset-password-sql.mjs)
-// - legacy: raw hex of PBKDF2-HMAC-SHA256(password, salt, 120000, 32)
-// Returns needsReset when the stored data is malformed, so a corrupt row
-// forces a password reset instead of crashing the login.
-async function verifyPassword(
-  password: string,
-  saltHex: string,
-  storedHash: string,
-): Promise<{ ok: boolean; needsReset: boolean; needsRehash: boolean }> {
-  try {
-    const modular = /^pbkdf2-sha256\$(\d+)\$([0-9a-fA-F]+)$/.exec(storedHash);
-    if (modular) {
-      const iterations = parseInt(modular[1], 10);
-      const derived = pbkdf2Sync(password, fromHex(saltHex), iterations, 32, 'sha256');
-      const ok = bytesToHex(derived).toLowerCase() === modular[2].toLowerCase();
-      return { ok, needsReset: false, needsRehash: false };
-    }
-    const check = await hashPassword(password, saltHex);
-    if (check.hash === storedHash) {
-      return { ok: true, needsReset: false, needsRehash: true };
-    }
-    return { ok: false, needsReset: false, needsRehash: false };
-  } catch {
-    return { ok: false, needsReset: true, needsRehash: false };
-  }
 }
 
 async function readJson(request: Request): Promise<Record<string, any>> {
@@ -1026,24 +979,16 @@ export default {
 
     try {
       if (request.method === 'GET' && path === '/health') {
-        // Self-test: does the password-crypto path work in this runtime?
-        // (Low iteration count; just proves pbkdf2Sync runs without throwing.)
-        let passwordCryptoOk = false;
-        try {
-          const probe = pbkdf2Sync('health-probe', randomBytes(16), 1000, 32, 'sha256');
-          passwordCryptoOk = probe.length === 32;
-        } catch {
-          passwordCryptoOk = false;
-        }
+        const passwordCryptoOk = await passwordCryptoSelfTest();
         return json({
-          ok: true,
+          ok: passwordCryptoOk,
           service: 'resource-memory-api',
           imageIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
           voiceIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
           semanticSearchConfigured: Boolean(env.OPENAI_API_KEY),
           passwordCryptoOk,
-          build: 'verify-password-defined',
-        });
+          build: 'password-compat-v2',
+        }, passwordCryptoOk ? 200 : 503);
       }
 
       if (request.method === 'POST' && path === '/auth/register') {
