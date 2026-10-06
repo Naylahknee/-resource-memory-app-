@@ -103,7 +103,19 @@ If migration 002 has not been applied, writes keep working in their original sha
 falls back to simple keyword matching, so deploying the Worker before running the migration does
 not break existing clients.
 
-Passwords are derived with PBKDF2 in the Worker. Session tokens are hashed before being stored in Neon.
+Passwords are derived with PBKDF2-SHA256 in the Worker. Session tokens are hashed before being stored in Neon.
+
+Deployed Workers reject PBKDF2 above 100,000 iterations, but local `wrangler dev` does not, so a
+higher count works locally and returns a 500 from `/auth/login` once deployed. New hashes use
+100,000 iterations and are stored as `pbkdf2-sha256$100000$<hex>`. Accounts created before this
+used 120,000 iterations, which the deployed Worker cannot recompute, so `/auth/login` answers them
+with `409` and a reset message. Set a new password directly instead:
+
+```bash
+node worker/scripts/reset-password-sql.mjs you@example.com 'new password'
+```
+
+Paste the printed `update` statement into the Neon SQL editor.
 
 ## 4. Connect the Flutter deployment
 

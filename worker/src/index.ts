@@ -1038,9 +1038,22 @@ export default {
         `;
         if (!rows.length) throw new ResponseError(401, 'Email or password is incorrect.');
 
-        const check = await hashPassword(password, rows[0].password_salt as string);
-        if (check.hash !== rows[0].password_hash) {
-          throw new ResponseError(401, 'Email or password is incorrect.');
+        const check = await verifyPassword(
+          password,
+          rows[0].password_salt as string,
+          rows[0].password_hash as string,
+        );
+        if (check.needsReset) {
+          throw new ResponseError(409, 'This account needs a password reset before it can sign in.');
+        }
+        if (!check.ok) throw new ResponseError(401, 'Email or password is incorrect.');
+        if (check.needsRehash) {
+          const upgraded = await hashPassword(password);
+          await sql`
+            update users
+            set password_salt = ${upgraded.salt}, password_hash = ${upgraded.hash}
+            where id = ${rows[0].id}
+          `;
         }
         const token = await issueSession(sql, rows[0].id as string);
         return json({ token, email: rows[0].email });
