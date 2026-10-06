@@ -105,17 +105,60 @@ not break existing clients.
 
 Passwords are derived with PBKDF2-SHA256 in the Worker. Session tokens are hashed before being stored in Neon.
 
-Deployed Workers reject PBKDF2 above 100,000 iterations, but local `wrangler dev` does not, so a
-higher count works locally and returns a 500 from `/auth/login` once deployed. New hashes use
-100,000 iterations and are stored as `pbkdf2-sha256$100000$<hex>`. Accounts created before this
-used 120,000 iterations, which the deployed Worker cannot recompute, so `/auth/login` answers them
-with `409` and a reset message. Set a new password directly instead:
+Password hashing uses Workers' native `node:crypto` PBKDF2-SHA256. Original bare-hex
+hashes still verify with their original 120,000 iterations, so existing users keep their
+passwords. New hashes record the count as `pbkdf2-sha256$120000$<hex>`. The 100,000-iteration
+format written by the reset script is also accepted and upgraded after successful login.
+Malformed records return a reset message instead of crashing authentication.
+
+### Update an existing Worker
+
+Run these from your local repository root (the folder containing `worker`):
+
+```bash
+git pull --ff-only origin main
+git log -1 --oneline
+cd worker
+npm ci
+npm test
+npx wrangler login
+npm run deploy
+npm run check:health
+```
+
+Sign into the Cloudflare account that owns `resource-memory-api` when Wrangler opens the
+browser. A normal update preserves its existing Worker secrets and R2 binding; you do not
+need to reset your password or recreate the database.
+
+`check:health` checks the current deployment at
+`https://resource-memory-api.madincrease.workers.dev`. For another deployment, use
+`npm run check:health -- https://YOUR-WORKER.workers.dev`.
+It fails if the Worker is still serving old code or real password hashing fails.
+
+### Deploy automatically from GitHub
+
+`.github/workflows/deploy-worker.yml` tests and deploys the Worker on `main` changes under
+`worker/`. It also has a manual **Run workflow** button. The Pages workflow deploys only
+the Flutter front end; it does not update the Worker.
+
+Add these repository Actions secrets once:
+
+- `CLOUDFLARE_API_TOKEN`: a Cloudflare **Edit Cloudflare Workers** API token scoped to the
+  account that owns the existing Worker and R2 bucket.
+- `CLOUDFLARE_ACCOUNT_ID`: that account's ID from the Cloudflare dashboard.
+
+Keep `DATABASE_URL` and `OPENAI_API_KEY` as Cloudflare Worker secrets. Do not put their
+values in the repository. If the deploy workflow reports missing credentials, add the two
+Actions secrets and rerun it, or use the local deployment commands above.
+
+The reset SQL script is only a recovery option for malformed password records:
 
 ```bash
 node worker/scripts/reset-password-sql.mjs you@example.com 'new password'
 ```
 
-Paste the printed `update` statement into the Neon SQL editor.
+Paste the printed `update` statement into the Neon SQL editor. Normal legacy accounts do
+not need this step.
 
 ## 4. Connect the Flutter deployment
 
@@ -169,6 +212,9 @@ A configured deployment returns an object containing:
   "ok": true,
   "service": "resource-memory-api",
   "imageIntelligenceConfigured": true,
-  "voiceIntelligenceConfigured": true
+  "voiceIntelligenceConfigured": true,
+  "semanticSearchConfigured": true,
+  "passwordCryptoOk": true,
+  "build": "password-compat-v2"
 }
 ```
