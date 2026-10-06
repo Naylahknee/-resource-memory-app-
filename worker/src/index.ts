@@ -56,6 +56,35 @@ async function hashPassword(password: string, saltHex?: string): Promise<{ salt:
   return { salt: bytesToHex(saltBytes), hash: bytesToHex(derived) };
 }
 
+// Verifies a password against the stored salt/hash without ever throwing.
+// Supports two formats:
+// - modular: pbkdf2-sha256$<iterations>$<hex> (written by worker/scripts/reset-password-sql.mjs)
+// - legacy: raw hex of PBKDF2-HMAC-SHA256(password, salt, 120000, 32)
+// Returns needsReset when the stored data is malformed, so a corrupt row
+// forces a password reset instead of crashing the login.
+async function verifyPassword(
+  password: string,
+  saltHex: string,
+  storedHash: string,
+): Promise<{ ok: boolean; needsReset: boolean; needsRehash: boolean }> {
+  try {
+    const modular = /^pbkdf2-sha256\$(\d+)\$([0-9a-fA-F]+)$/.exec(storedHash);
+    if (modular) {
+      const iterations = parseInt(modular[1], 10);
+      const derived = pbkdf2Sync(password, fromHex(saltHex), iterations, 32, 'sha256');
+      const ok = bytesToHex(derived).toLowerCase() === modular[2].toLowerCase();
+      return { ok, needsReset: false, needsRehash: false };
+    }
+    const check = await hashPassword(password, saltHex);
+    if (check.hash === storedHash) {
+      return { ok: true, needsReset: false, needsRehash: true };
+    }
+    return { ok: false, needsReset: false, needsRehash: false };
+  } catch {
+    return { ok: false, needsReset: true, needsRehash: false };
+  }
+}
+
 async function readJson(request: Request): Promise<Record<string, any>> {
   try {
     return (await request.json()) as Record<string, any>;
@@ -997,12 +1026,23 @@ export default {
 
     try {
       if (request.method === 'GET' && path === '/health') {
+        // Self-test: does the password-crypto path work in this runtime?
+        // (Low iteration count; just proves pbkdf2Sync runs without throwing.)
+        let passwordCryptoOk = false;
+        try {
+          const probe = pbkdf2Sync('health-probe', randomBytes(16), 1000, 32, 'sha256');
+          passwordCryptoOk = probe.length === 32;
+        } catch {
+          passwordCryptoOk = false;
+        }
         return json({
           ok: true,
           service: 'resource-memory-api',
           imageIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
           voiceIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
           semanticSearchConfigured: Boolean(env.OPENAI_API_KEY),
+          passwordCryptoOk,
+          build: 'verify-password-defined',
         });
       }
 
