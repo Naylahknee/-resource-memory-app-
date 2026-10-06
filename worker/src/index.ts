@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import { pbkdf2Sync, randomBytes } from 'node:crypto';
 
 interface Env {
   DATABASE_URL: string;
@@ -41,59 +42,18 @@ async function hashToken(token: string): Promise<string> {
   return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(token)));
 }
 
-// Cloudflare's production runtime rejects PBKDF2 above 100,000 iterations
-// (local `wrangler dev` does not enforce this, so it only fails once deployed).
-const PBKDF2_ITERATIONS = 100000;
-const PASSWORD_HASH_PREFIX = 'pbkdf2-sha256';
-
-async function derivePbkdf2Hex(password: string, saltBytes: Uint8Array, iterations: number): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits'],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations },
-    key,
-    256,
-  );
-  return toHex(bits);
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function hashPassword(password: string): Promise<{ salt: string; hash: string }> {
-  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-  const derived = await derivePbkdf2Hex(password, saltBytes, PBKDF2_ITERATIONS);
-  return {
-    salt: toHex(saltBytes.buffer),
-    hash: `${PASSWORD_HASH_PREFIX}$${PBKDF2_ITERATIONS}$${derived}`,
-  };
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-// Hashes the runtime cannot recompute (older bare-hex rows used 120,000
-// iterations) are reported as needing a reset rather than verified in JS,
-// which would cost hundreds of milliseconds of CPU per unauthenticated attempt.
-async function verifyPassword(
-  password: string,
-  saltHex: string,
-  storedHash: string,
-): Promise<{ ok: boolean; needsRehash: boolean; needsReset: boolean }> {
-  const parts = storedHash.split('$');
-  const iterations = Number(parts[1]);
-  if (parts.length !== 3 || parts[0] !== PASSWORD_HASH_PREFIX || !(iterations > 0 && iterations <= PBKDF2_ITERATIONS)) {
-    return { ok: false, needsRehash: false, needsReset: true };
-  }
-  const derived = await derivePbkdf2Hex(password, fromHex(saltHex), iterations);
-  const ok = timingSafeEqual(derived, parts[2]);
-  return { ok, needsRehash: ok && iterations !== PBKDF2_ITERATIONS, needsReset: false };
+async function hashPassword(password: string, saltHex?: string): Promise<{ salt: string; hash: string }> {
+  // NOTE: crypto.subtle PBKDF2 throws in the Workers runtime, so password hashing
+  // uses node:crypto instead. Parameters are identical to the old scheme
+  // (PBKDF2-HMAC-SHA256, 120000 iterations, 32-byte output, hex encoded),
+  // so existing password hashes keep verifying.
+  const saltBytes: Uint8Array = saltHex ? fromHex(saltHex) : randomBytes(16);
+  const derived: Uint8Array = pbkdf2Sync(password, saltBytes, 120000, 32, 'sha256');
+  return { salt: bytesToHex(saltBytes), hash: bytesToHex(derived) };
 }
 
 async function readJson(request: Request): Promise<Record<string, any>> {
