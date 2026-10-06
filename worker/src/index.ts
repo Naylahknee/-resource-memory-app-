@@ -41,6 +41,14 @@ async function hashToken(token: string): Promise<string> {
   return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(token)));
 }
 
+// Cloudflare's production runtime rejects PBKDF2 above 100,000 iterations
+// (local `wrangler dev` does not enforce this, so it only fails once deployed).
+const PBKDF2_ITERATIONS = 100000;
+// Hashes created before the cap was respected used 120,000 iterations and are
+// stored as bare hex. They are verified in pure JS and upgraded on login.
+const LEGACY_PBKDF2_ITERATIONS = 120000;
+const PASSWORD_HASH_PREFIX = 'pbkdf2-sha256';
+
 async function hashPassword(password: string, saltHex?: string): Promise<{ salt: string; hash: string }> {
   const saltBytes = saltHex ? fromHex(saltHex) : crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey(
@@ -51,11 +59,135 @@ async function hashPassword(password: string, saltHex?: string): Promise<{ salt:
     ['deriveBits'],
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations: 120000 },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations: PBKDF2_ITERATIONS },
     key,
     256,
   );
-  return { salt: toHex(saltBytes.buffer), hash: toHex(bits) };
+  return {
+    salt: toHex(saltBytes.buffer),
+    hash: `${PASSWORD_HASH_PREFIX}$${PBKDF2_ITERATIONS}$${toHex(bits)}`,
+  };
+}
+
+const SHA256_K = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
+const SHA256_IV = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+
+// One SHA-256 compression of the 16-word block `w` into `state` (in place).
+const sha256Schedule = new Uint32Array(64);
+
+function sha256Block(state: Uint32Array, w: Uint32Array): void {
+  const m = sha256Schedule;
+  m.set(w);
+  for (let i = 16; i < 64; i++) {
+    const a = m[i - 15];
+    const b = m[i - 2];
+    const s0 = ((a >>> 7) | (a << 25)) ^ ((a >>> 18) | (a << 14)) ^ (a >>> 3);
+    const s1 = ((b >>> 17) | (b << 15)) ^ ((b >>> 19) | (b << 13)) ^ (b >>> 10);
+    m[i] = (m[i - 16] + s0 + m[i - 7] + s1) | 0;
+  }
+  let [a, b, c, d, e, f, g, h] = state;
+  for (let i = 0; i < 64; i++) {
+    const t1 = (h + (((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7))) +
+      ((e & f) ^ (~e & g)) + SHA256_K[i] + m[i]) | 0;
+    const t2 = ((((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10))) +
+      ((a & b) ^ (a & c) ^ (b & c))) | 0;
+    h = g; g = f; f = e; e = (d + t1) | 0;
+    d = c; c = b; b = a; a = (t1 + t2) | 0;
+  }
+  state[0] += a; state[1] += b; state[2] += c; state[3] += d;
+  state[4] += e; state[5] += f; state[6] += g; state[7] += h;
+}
+
+// Finish a SHA-256 whose first 64 bytes are already absorbed into `state`.
+function sha256Continue(state: Uint32Array, data: Uint8Array): Uint32Array {
+  const total = 64 + data.length;
+  const padded = new Uint8Array(Math.ceil((data.length + 9) / 64) * 64);
+  padded.set(data);
+  padded[data.length] = 0x80;
+  const view = new DataView(padded.buffer);
+  view.setUint32(padded.length - 8, Math.floor((total * 8) / 2 ** 32));
+  view.setUint32(padded.length - 4, (total * 8) >>> 0);
+  const out = new Uint32Array(state);
+  const w = new Uint32Array(16);
+  for (let off = 0; off < padded.length; off += 64) {
+    for (let i = 0; i < 16; i++) w[i] = view.getUint32(off + i * 4);
+    sha256Block(out, w);
+  }
+  return out;
+}
+
+// PBKDF2-HMAC-SHA256 producing 32 bytes, for iteration counts the runtime refuses.
+async function legacyPbkdf2Hex(password: string, salt: Uint8Array, iterations: number): Promise<string> {
+  let keyBytes = encoder.encode(password);
+  if (keyBytes.length > 64) keyBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', keyBytes));
+  const keyWords = new Uint32Array(16);
+  for (let i = 0; i < keyBytes.length; i++) keyWords[i >> 2] |= keyBytes[i] << (24 - (i % 4) * 8);
+  const inner = new Uint32Array(SHA256_IV);
+  const outer = new Uint32Array(SHA256_IV);
+  sha256Block(inner, keyWords.map((x) => x ^ 0x36363636));
+  sha256Block(outer, keyWords.map((x) => x ^ 0x5c5c5c5c));
+
+  const first = new Uint8Array(salt.length + 4);
+  first.set(salt);
+  first[salt.length + 3] = 1;
+  const u1Inner = sha256Continue(inner, first);
+  const u1 = new Uint32Array(outer);
+  const u1Block = new Uint32Array(16);
+  u1Block.set(u1Inner);
+  u1Block[8] = 0x80000000;
+  u1Block[15] = (64 + 32) * 8;
+  sha256Block(u1, u1Block);
+
+  // A 32-byte message after the 64-byte key block always pads to the same block.
+  const block = new Uint32Array(16);
+  block[8] = 0x80000000;
+  block[15] = (64 + 32) * 8;
+  const u = new Uint32Array(8);
+  const result = new Uint32Array(8);
+  result.set(u1);
+  u.set(u1);
+  const state = new Uint32Array(8);
+  for (let n = 1; n < iterations; n++) {
+    block.set(u);
+    state.set(inner);
+    sha256Block(state, block);
+    block.set(state);
+    u.set(outer);
+    sha256Block(u, block);
+    for (let i = 0; i < 8; i++) result[i] ^= u[i];
+  }
+  return [...result].map((x) => x.toString(16).padStart(8, '0')).join('');
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function verifyPassword(password: string, saltHex: string, storedHash: string): Promise<{ ok: boolean; needsRehash: boolean }> {
+  const parts = storedHash.split('$');
+  if (parts.length === 3 && parts[0] === PASSWORD_HASH_PREFIX) {
+    const iterations = Number(parts[1]);
+    const derived = iterations === PBKDF2_ITERATIONS
+      ? (await hashPassword(password, saltHex)).hash.split('$')[2]
+      : await legacyPbkdf2Hex(password, fromHex(saltHex), iterations);
+    const ok = timingSafeEqual(derived, parts[2]);
+    return { ok, needsRehash: ok && iterations !== PBKDF2_ITERATIONS };
+  }
+  const derived = await legacyPbkdf2Hex(password, fromHex(saltHex), LEGACY_PBKDF2_ITERATIONS);
+  const ok = timingSafeEqual(derived, storedHash);
+  return { ok, needsRehash: ok };
 }
 
 async function readJson(request: Request): Promise<Record<string, any>> {
@@ -1040,9 +1172,19 @@ export default {
         `;
         if (!rows.length) throw new ResponseError(401, 'Email or password is incorrect.');
 
-        const check = await hashPassword(password, rows[0].password_salt as string);
-        if (check.hash !== rows[0].password_hash) {
-          throw new ResponseError(401, 'Email or password is incorrect.');
+        const check = await verifyPassword(
+          password,
+          rows[0].password_salt as string,
+          rows[0].password_hash as string,
+        );
+        if (!check.ok) throw new ResponseError(401, 'Email or password is incorrect.');
+        if (check.needsRehash) {
+          const upgraded = await hashPassword(password);
+          await sql`
+            update users
+            set password_salt = ${upgraded.salt}, password_hash = ${upgraded.hash}
+            where id = ${rows[0].id}
+          `;
         }
         const token = await issueSession(sql, rows[0].id as string);
         return json({ token, email: rows[0].email });
