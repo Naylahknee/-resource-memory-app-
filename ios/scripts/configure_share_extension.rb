@@ -36,7 +36,7 @@ end
 
 runner_bundle_id = runner.build_configurations.map { |config| config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] }
   .compact
-  .find { |value| !value.to_s.empty? } || 'com.example.taskee'
+  .find { |value| !value.to_s.empty? } || 'com.naylahknee.nanynany'
 extension_bundle_id = "#{runner_bundle_id}.ShareExtension"
 
 extension.build_configurations.each do |config|

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:taskee/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
 
 void main() {
   group('Resource', () {

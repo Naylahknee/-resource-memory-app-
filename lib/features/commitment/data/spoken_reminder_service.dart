@@ -1,7 +1,7 @@
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:taskee/features/resource/data/cloud_sync_service.dart';
-import 'package:taskee/features/commitment/data/phone_bridge.dart';
+import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
+import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
 
 class SpokenReminderSettings {
   const SpokenReminderSettings({

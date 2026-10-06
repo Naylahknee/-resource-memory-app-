@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:taskee/app/theme/app_colors.dart';
-import 'package:taskee/app/theme/app_typography.dart';
-import 'package:taskee/features/commitment/data/spoken_reminder_service.dart';
-import 'package:taskee/features/commitment/data/phone_bridge.dart';
+import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/app/theme/app_typography.dart';
+import 'package:resource_memory/features/commitment/data/spoken_reminder_service.dart';
+import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
 
 class SpokenReminderSettingsScreen extends StatefulWidget {
   const SpokenReminderSettingsScreen({super.key});

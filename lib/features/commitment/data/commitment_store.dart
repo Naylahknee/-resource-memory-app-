@@ -1,5 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:taskee/features/commitment/domain/commitment.dart';
+import 'package:resource_memory/features/commitment/domain/commitment.dart';
 
 class CommitmentStore {
   static const boxName = 'resource_memory_commitments';

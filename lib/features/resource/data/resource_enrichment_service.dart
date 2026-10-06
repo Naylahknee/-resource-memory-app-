@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:taskee/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
 
 class ResourceDraft {
   const ResourceDraft({

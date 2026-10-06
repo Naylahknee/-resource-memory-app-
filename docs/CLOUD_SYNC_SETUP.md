@@ -27,6 +27,11 @@ Run `worker/schema.sql` against the Neon database. It creates:
 - `sessions`
 - `resources`
 
+Then run `worker/migrations/002_memory_search.sql` against the same database. It enables the
+`pgvector` extension and adds the semantic-search columns (`search_text`, `source_type`,
+`resource_type`, `event_at`, `event_confidence`, `embedding_model`, `embedding`) plus the
+full-text and vector indexes the `/search` endpoint needs.
+
 ## 2. Create the R2 bucket
 
 Create an R2 bucket named:
@@ -60,10 +65,13 @@ POST   /auth/login
 POST   /auth/logout
 POST   /analyze-image
 POST   /analyze-audio
+POST   /analyze-session
 GET    /resources
 PUT    /resources/:id
 DELETE /resources/:id
 POST   /sync
+POST   /search
+POST   /reindex
 POST   /uploads/:resourceId
 GET    /assets/:resourceId
 GET    /health
@@ -72,6 +80,28 @@ GET    /health
 `POST /analyze-image` is authenticated. It sends the screenshot to OpenAI through the Worker and returns structured resource metadata: title, visible URL when present, creator, platform, summary, why-useful, use-when, topics, technologies, and resource type.
 
 `POST /analyze-audio` is authenticated. It transcribes the audio with OpenAI speech-to-text, then turns the transcript into the same retrieval-oriented metadata. The original audio file is stored separately in R2 when sync is connected, while the transcript and metadata are stored with the Resource in Neon.
+
+## Semantic search
+
+Every `PUT /resources/:id` and `POST /sync` write builds a `search_text` field from the resource
+(title, creator, platform, summary, why-useful, use-when, transcript, topics, technologies, URL,
+and tab-session contents). When `OPENAI_API_KEY` is configured, the Worker also generates a
+`text-embedding-3-small` vector for new or changed resources. Embeddings are only regenerated
+when the searchable text changes, and `/sync` batches them into a single OpenAI call.
+
+`POST /search` (body: `{ "query": "...", "limit": 10, "types": ["session"] }`) returns hybrid
+results: full-text rank plus vector similarity, reranked with a light recency boost. Each result
+includes the resource, a 0-1 score, a highlighted snippet, the matched terms, and a plain-language
+`why` list explaining the match. Without an OpenAI key it falls back to full-text search and
+reports `"semantic": false`.
+
+`POST /reindex` backfills `search_text` and embeddings for existing rows (100 per call; repeat
+until `pendingSearchText` and `pendingEmbeddings` are both 0). Run it once after applying
+migration 002 to make previously saved resources searchable.
+
+If migration 002 has not been applied, writes keep working in their original shape and `/search`
+falls back to simple keyword matching, so deploying the Worker before running the migration does
+not break existing clients.
 
 Passwords are derived with PBKDF2 in the Worker. Session tokens are hashed before being stored in Neon.
 

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:taskee/app/theme/app_colors.dart';
-import 'package:taskee/app/theme/app_typography.dart';
-import 'package:taskee/features/resource/data/resource_link_service.dart';
-import 'package:taskee/features/resource/data/resource_store.dart';
-import 'package:taskee/features/resource/domain/resource.dart';
-import 'package:taskee/features/widget/app_gradient.dart';
+import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/app/theme/app_typography.dart';
+import 'package:resource_memory/features/resource/data/resource_link_service.dart';
+import 'package:resource_memory/features/resource/data/resource_store.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class ProjectMatchScreen extends StatefulWidget {
   const ProjectMatchScreen({super.key});
