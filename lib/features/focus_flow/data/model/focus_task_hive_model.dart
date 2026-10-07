@@ -41,9 +41,6 @@ class FocusTaskHiveModel {
   @HiveField(10)
   final DateTime? lastBumpedAt;
 
-  @HiveField(11)
-  final DateTime? resurfaceAt;
-
   const FocusTaskHiveModel({
     required this.id,
     required this.title,
@@ -56,7 +53,6 @@ class FocusTaskHiveModel {
     required this.createdAt,
     required this.triaged,
     required this.lastBumpedAt,
-    required this.resurfaceAt,
   });
 
   factory FocusTaskHiveModel.fromDomain(FocusTask task) => FocusTaskHiveModel(
@@ -71,7 +67,6 @@ class FocusTaskHiveModel {
         createdAt: task.createdAt,
         triaged: task.triaged,
         lastBumpedAt: task.lastBumpedAt,
-        resurfaceAt: task.resurfaceAt,
       );
 
   FocusTask toDomain() => FocusTask(
@@ -86,6 +81,5 @@ class FocusTaskHiveModel {
         createdAt: createdAt,
         triaged: triaged,
         lastBumpedAt: lastBumpedAt,
-        resurfaceAt: resurfaceAt,
       );
 }

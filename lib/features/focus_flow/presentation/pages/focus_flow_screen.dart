@@ -6,7 +6,6 @@ import '../../../../app/theme/app_typography.dart';
 import '../cubit/focus_flow_cubit.dart';
 import 'widgets/brain_dump_panel.dart';
 import 'widgets/focus_session_panel.dart';
-import 'widgets/triage_grid_panel.dart';
 
 /// Focus Flow: the "Act" side of Capture → Understand → Remember → Resurface → Act.
 ///
@@ -42,7 +41,7 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text('ACT'),
+        title: const Text('Focus Flow'),
       ),
       body: SafeArea(
         child: Column(
@@ -71,13 +70,6 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
                         onTap: () => setState(() => _tab = 1),
                       ),
                     ),
-                    Expanded(
-                      child: _SegPill(
-                        label: 'SORT',
-                        selected: _tab == 2,
-                        onTap: () => setState(() => _tab = 2),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -86,24 +78,9 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
             Expanded(
               child: IndexedStack(
                 index: _tab,
-                children: [
-                  const BrainDumpPanel(),
-                  const FocusSessionPanel(),
-                  TriageGridPanel(
-                    onStart: (task) {
-                      final cubit = context.read<FocusFlowCubit>();
-                      cubit.bringToFront(task.key);
-                      setState(() => _tab = 1);
-                    },
-                    onTiny: (task) {
-                      final cubit = context.read<FocusFlowCubit>();
-                      cubit.bringToFront(task.key);
-                      cubit.openTiny(task.key);
-                      setState(() => _tab = 1);
-                    },
-                    onSnooze: (task) =>
-                        context.read<FocusFlowCubit>().skip(task.key),
-                  ),
+                children: const [
+                  BrainDumpPanel(),
+                  FocusSessionPanel(),
                 ],
               ),
             ),
@@ -134,7 +111,7 @@ class _SegPill extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: AppTypography.labelLg.copyWith(
-            color: selected ? Colors.white : AppColors.textSecondary,
+            color: selected ? Colors.black : AppColors.textSecondary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
