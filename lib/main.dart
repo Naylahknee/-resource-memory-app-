@@ -6,6 +6,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:resource_memory/app/routing/go_router.dart';
 import 'package:resource_memory/app/theme/app_theme.dart';
 import 'package:resource_memory/features/commitment/data/commitment_store.dart';
+import 'package:resource_memory/features/focus_flow/data/focus_store.dart';
 import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
 import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
 import 'package:resource_memory/features/resource/data/incoming_share_service.dart';
@@ -17,6 +18,7 @@ Future<void> main() async {
   await CloudSyncService.initialize();
   await ResourceStore.initialize();
   await CommitmentStore.initialize();
+  await FocusStore.initialize();
   if (CloudSyncService.isSignedIn) {
     await ResourceStore.syncNow();
   }

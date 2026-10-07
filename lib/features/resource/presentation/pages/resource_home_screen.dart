@@ -182,6 +182,7 @@ class _Navigation extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: _NavPill(label: 'NOW', selected: true, onTap: () {})),
+          Expanded(child: _NavPill(label: 'ACT', onTap: () => context.go('/${Routes.focusFlowScreen}'))),
           Expanded(child: _NavPill(label: 'REMEMBER', onTap: () => context.go('/${Routes.commitmentsScreen}'))),
           Expanded(child: _NavPill(label: 'LIBRARY', onTap: () => context.go('/${Routes.libraryScreen}'))),
         ],
