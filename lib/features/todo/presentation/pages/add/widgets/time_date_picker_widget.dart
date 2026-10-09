@@ -135,7 +135,7 @@ class _PickerCard extends StatelessWidget {
                 color: _accent,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppColors.kBlack, size: 20),
+              child: Icon(icon, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -146,7 +146,7 @@ class _PickerCard extends StatelessWidget {
                     label.toUpperCase(),
                     style: TextStyle(
                       fontSize: 10,
-                      color: AppColors.kWhite,
+                      color: AppColors.textSecondary,
                       letterSpacing: 0.5,
                     ),
                   ),

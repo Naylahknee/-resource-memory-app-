@@ -30,6 +30,10 @@ class FocusTask {
   final bool triaged;
   final DateTime? lastBumpedAt;
 
+  /// When set, the task stays out of the queue until this time passes,
+  /// then resurfaces with a "Came back" badge.
+  final DateTime? resurfaceAt;
+
   const FocusTask({
     required this.id,
     required this.title,
@@ -42,6 +46,7 @@ class FocusTask {
     required this.createdAt,
     this.triaged = false,
     this.lastBumpedAt,
+    this.resurfaceAt,
   });
 
   bool get isCompleted => completedAt != null;
@@ -61,7 +66,9 @@ class FocusTask {
     DateTime? createdAt,
     bool? triaged,
     DateTime? lastBumpedAt,
+    DateTime? resurfaceAt,
     bool clearCompletedAt = false,
+    bool clearResurfaceAt = false,
   }) {
     return FocusTask(
       id: id ?? this.id,
@@ -75,6 +82,7 @@ class FocusTask {
       createdAt: createdAt ?? this.createdAt,
       triaged: triaged ?? this.triaged,
       lastBumpedAt: lastBumpedAt ?? this.lastBumpedAt,
+      resurfaceAt: clearResurfaceAt ? null : (resurfaceAt ?? this.resurfaceAt),
     );
   }
 }
@@ -98,6 +106,9 @@ class FocusTaskView {
   final bool isExternal;
   final int? nativeId;
 
+  /// True when this task was snoozed with "Not now" and has now come back.
+  final bool cameBack;
+
   const FocusTaskView({
     required this.key,
     required this.title,
@@ -111,5 +122,6 @@ class FocusTaskView {
     this.microStepsDone = const [],
     this.isExternal = false,
     this.nativeId,
+    this.cameBack = false,
   });
 }

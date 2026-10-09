@@ -9,7 +9,6 @@ import '../../data/focus_store.dart';
 import '../../domain/entities/focus_task.dart';
 import '../../domain/micro_step_generator.dart';
 import 'focus_flow_state.dart';
-
 /// Drives the Focus Flow screens. Everything is local-first; external items
 /// (todos, commitments) are projected into the queue read-only.
 class FocusFlowCubit extends Cubit<FocusFlowState> {
@@ -20,11 +19,13 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
         .where((t) => !t.isCompleted && !t.triaged)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final queue = await _buildQueue();
+    final lowCapacity = FocusStore.isLowCapacity;
+    final queue = await _buildQueue(lowCapacity: lowCapacity);
     emit(state.copyWith(
       inbox: inbox,
       queue: queue,
       doneToday: FocusStore.completionsToday(),
+      lowCapacity: lowCapacity,
     ));
   }
 
@@ -88,11 +89,12 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     FocusStore.logCompletion(key);
     final microSteps = Map<String, List<String>>.from(state.microSteps)..remove(key);
     final checked = Map<String, Set<int>>.from(state.microStepsChecked)..remove(key);
-    emit(state.copyWith(clearStuckKey: true, microSteps: microSteps, microStepsChecked: checked));
+    emit(state.copyWith(clearStuckKey: true, clearTinyKey: true, microSteps: microSteps, microStepsChecked: checked));
     await load();
   }
 
-  /// "Not now": bumps the task to the end of its urgency tier.
+  /// "Not now": the task leaves the queue and comes back in about
+  /// 2 hours with a small "Came back" badge. No judgment.
   Future<void> skip(String key) async {
     if (key.startsWith('focus:')) {
       final id = int.tryParse(key.substring(6));
@@ -103,6 +105,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
             FocusStore.update(t.copyWith(
               skippedCount: t.skippedCount + 1,
               lastBumpedAt: DateTime.now(),
+              resurfaceAt: DateTime.now().add(const Duration(hours: 2)),
             ));
             break;
           }
@@ -111,9 +114,22 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     } else {
       FocusStore.bumpExternal(key);
     }
-    emit(state.copyWith(clearStuckKey: true));
+    emit(state.copyWith(clearStuckKey: true, clearTinyKey: true));
     await load();
   }
+
+  // ── Low-capacity day mode ─────────────────────────────────────
+
+  Future<void> setLowCapacity(bool value) async {
+    FocusStore.setLowCapacity(value);
+    await load();
+  }
+
+  // ── "Make it tiny" 2-minute reframe ───────────────────────────
+
+  void openTiny(String key) => emit(state.copyWith(tinyKey: key));
+
+  void closeTiny() => emit(state.copyWith(clearTinyKey: true));
 
   // ── "I'm stuck" breakdown ───────────────────────────────────
 
@@ -123,7 +139,11 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     if (!microSteps.containsKey(key)) {
       final view = _viewFor(key);
       if (view == null) return;
-      final steps = view.microSteps.isNotEmpty ? view.microSteps : generateMicroSteps(view.title);
+      // On a low-capacity day the breakdown starts gentle.
+      final spiciness = state.lowCapacity ? StepSpiciness.gentle : StepSpiciness.medium;
+      final steps = view.microSteps.isNotEmpty
+          ? view.microSteps
+          : generateMicroSteps(view.title, spiciness: spiciness);
       microSteps[key] = steps;
       checked[key] = {
         for (int i = 0; i < view.microStepsDone.length; i++)
@@ -142,8 +162,42 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
           }
         }
       }
+      emit(state.copyWith(
+        stuckKey: key,
+        microSteps: microSteps,
+        microStepsChecked: checked,
+        stuckSpiciness: spiciness,
+      ));
+    } else {
+      emit(state.copyWith(stuckKey: key, microSteps: microSteps, microStepsChecked: checked));
     }
-    emit(state.copyWith(stuckKey: key, microSteps: microSteps, microStepsChecked: checked));
+  }
+
+  /// Regenerates the breakdown at a new granularity ("Gentle" to "Spicy").
+  void setStuckSpiciness(String key, StepSpiciness spiciness) {
+    final view = _viewFor(key);
+    if (view == null) return;
+    final steps = generateMicroSteps(view.title, spiciness: spiciness);
+    final microSteps = Map<String, List<String>>.from(state.microSteps)..[key] = steps;
+    final checked = Map<String, Set<int>>.from(state.microStepsChecked)..[key] = {};
+    if (view.nativeId != null) {
+      final tasks = FocusStore.getAll();
+      for (final t in tasks) {
+        if (t.id == view.nativeId) {
+          FocusStore.update(t.copyWith(
+            microSteps: steps,
+            microStepsDone: List<bool>.filled(steps.length, false),
+          ));
+          break;
+        }
+      }
+    }
+    emit(state.copyWith(
+      stuckKey: key,
+      microSteps: microSteps,
+      microStepsChecked: checked,
+      stuckSpiciness: spiciness,
+    ));
   }
 
   void closeStuck() => emit(state.copyWith(clearStuckKey: true));
@@ -184,12 +238,16 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
 
   // ── Queue building ──────────────────────────────────────────
 
-  Future<List<FocusTaskView>> _buildQueue() async {
+  Future<List<FocusTaskView>> _buildQueue({bool lowCapacity = false}) async {
     final views = <FocusTaskView>[];
     final resolved = FocusStore.resolvedExternal.toSet();
+    final now = DateTime.now();
 
     for (final t in FocusStore.getAll()) {
       if (t.isCompleted || !t.triaged) continue;
+      // Snoozed with "Not now": hidden until the resurface time passes.
+      final resurface = t.resurfaceAt;
+      if (resurface != null && resurface.isAfter(now)) continue;
       views.add(FocusTaskView(
         key: 'focus:${t.id}',
         title: t.title,
@@ -201,6 +259,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
         microSteps: t.microSteps,
         microStepsDone: t.microStepsDone,
         nativeId: t.id,
+        cameBack: resurface != null && !resurface.isAfter(now),
       ));
     }
 
@@ -209,6 +268,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       final key = 'todo:${todo.id}';
       if (resolved.contains(key)) continue;
       final skip = FocusStore.externalSkipState(key);
+      if (skip.resurfaceAt != null && skip.resurfaceAt!.isAfter(now)) continue;
       views.add(FocusTaskView(
         key: key,
         title: todo.title,
@@ -219,6 +279,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
         lastBumpedAt: skip.lastBumpedAt,
         createdAt: todo.dueAt,
         isExternal: true,
+        cameBack: skip.resurfaceAt != null && !skip.resurfaceAt!.isAfter(now),
       ));
     }
 
@@ -228,6 +289,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
         final key = 'commitment:${c.id}';
         if (resolved.contains(key)) continue;
         final skip = FocusStore.externalSkipState(key);
+        if (skip.resurfaceAt != null && skip.resurfaceAt!.isAfter(now)) continue;
         views.add(FocusTaskView(
           key: key,
           title: c.title,
@@ -238,11 +300,16 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
           lastBumpedAt: skip.lastBumpedAt,
           createdAt: c.dueAt,
           isExternal: true,
+          cameBack: skip.resurfaceAt != null && !skip.resurfaceAt!.isAfter(now),
         ));
       }
     } catch (_) {}
 
     views.sort(_compareViews);
+    // Low-capacity day: only the top 3 stay visible.
+    if (lowCapacity && views.length > 3) {
+      return views.sublist(0, 3);
+    }
     return views;
   }
 

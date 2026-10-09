@@ -182,7 +182,7 @@ class _Navigation extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: _NavPill(label: 'NOW', selected: true, onTap: () {})),
-          Expanded(child: _NavPill(label: 'ACT', onTap: () => context.go('/${Routes.focusFlowScreen}'))),
+          Expanded(child: _NavPill(label: 'ACT', highlight: AppColors.piesPink, onTap: () => context.go('/${Routes.focusFlowScreen}'))),
           Expanded(child: _NavPill(label: 'REMEMBER', onTap: () => context.go('/${Routes.commitmentsScreen}'))),
           Expanded(child: _NavPill(label: 'LIBRARY', onTap: () => context.go('/${Routes.libraryScreen}'))),
         ],
@@ -245,8 +245,9 @@ class _ReturnCopy extends StatelessWidget {
 class _NavPill extends StatelessWidget {
   final String label;
   final bool selected;
+  final Color? highlight;
   final VoidCallback onTap;
-  const _NavPill({required this.label, required this.onTap, this.selected = false});
+  const _NavPill({required this.label, required this.onTap, this.selected = false, this.highlight});
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +257,7 @@ class _NavPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? AppColors.kTabGreyColor : Colors.transparent,
+          color: selected ? AppColors.accent : (highlight ?? Colors.transparent),
           borderRadius: BorderRadius.circular(30),
         ),
         child: Text(
@@ -264,7 +265,7 @@ class _NavPill extends StatelessWidget {
           textAlign: TextAlign.center,
           style: AppTypography.labelLg.copyWith(
             fontSize: 13.5,
-            color: selected ? Colors.white : Colors.white38,
+            color: (selected || highlight != null) ? Colors.white : AppColors.textMuted,
           ),
         ),
       ),

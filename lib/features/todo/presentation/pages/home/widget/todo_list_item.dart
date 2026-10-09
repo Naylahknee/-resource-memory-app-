@@ -45,7 +45,7 @@ class TodoListItem extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.kGreyCard,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.kWhite.withValues(alpha: .2)),
+            border: Border.all(color: AppColors.kBorderColor),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -58,7 +58,7 @@ class TodoListItem extends StatelessWidget {
                   onChanged: (_) => onToggleComplete(),
                   activeColor: AppColors.accent,
                   checkColor: AppColors.kBorderColor,
-                  side: BorderSide(color: AppColors.kWhite),
+                  side: BorderSide(color: AppColors.textMuted),
                   shape: const CircleBorder(),
                 ),
               ),
@@ -89,7 +89,7 @@ class TodoListItem extends StatelessWidget {
                               color: AppColors.kgrey,
                             )
                           : AppTypography.bodyLg.copyWith(
-                              color: AppColors.kWhite.withValues(alpha: .5),
+                              color: AppColors.textSecondary,
                             ),
                     ),
                   ],

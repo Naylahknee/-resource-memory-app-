@@ -81,7 +81,7 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
             label: const Text('Dump it'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.accent,
-              foregroundColor: Colors.black,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               textStyle: AppTypography.labelLg,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -90,7 +90,7 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
         ),
         if (inbox.isNotEmpty) ...[
           const SizedBox(height: 28),
-          Text('Quick tag — two taps each', style: AppTypography.h4),
+          Text('Quick tag: two taps each', style: AppTypography.h4),
           const SizedBox(height: 4),
           Text(
             'How urgent? How much energy? Then it joins your queue.',
@@ -116,7 +116,14 @@ class _TriageRowState extends State<_TriageRow> {
   Urgency? _urgency;
   EnergyLevel? _energy;
 
-  void _maybeCommit() {
+  void _maybeCommit(bool lowCapacity) {
+    if (lowCapacity) {
+      // Low-capacity day: one tap on urgency is enough, energy defaults low.
+      if (_urgency != null) {
+        context.read<FocusFlowCubit>().triage(widget.task.id, _urgency!, EnergyLevel.low);
+      }
+      return;
+    }
     if (_urgency != null && _energy != null) {
       context.read<FocusFlowCubit>().triage(widget.task.id, _urgency!, _energy!);
     }
@@ -124,6 +131,7 @@ class _TriageRowState extends State<_TriageRow> {
 
   @override
   Widget build(BuildContext context) {
+    final lowCapacity = context.select((FocusFlowCubit c) => c.state.lowCapacity);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -156,26 +164,28 @@ class _TriageRowState extends State<_TriageRow> {
                   selected: _urgency == u,
                   onTap: () => setState(() {
                     _urgency = u;
-                    _maybeCommit();
+                    _maybeCommit(lowCapacity);
                   }),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final e in EnergyLevel.values)
-                _Chip(
-                  label: '${e.name.toUpperCase()} ENERGY',
-                  selected: _energy == e,
-                  onTap: () => setState(() {
-                    _energy = e;
-                    _maybeCommit();
-                  }),
-                ),
-            ],
-          ),
+          if (!lowCapacity) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final e in EnergyLevel.values)
+                  _Chip(
+                    label: '${e.name.toUpperCase()} ENERGY',
+                    selected: _energy == e,
+                    onTap: () => setState(() {
+                      _energy = e;
+                      _maybeCommit(lowCapacity);
+                    }),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -205,7 +215,7 @@ class _Chip extends StatelessWidget {
         child: Text(
           label,
           style: AppTypography.labelMd.copyWith(
-            color: selected ? Colors.black : AppColors.textSecondary,
+            color: selected ? Colors.white : AppColors.textSecondary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),

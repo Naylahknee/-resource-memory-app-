@@ -142,22 +142,22 @@ class _CreateTaskOrNoteScreenState extends State<CreateTaskOrNoteScreen>
         backgroundColor: AppColors.kGreyCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppColors.kWhite.withValues(alpha: .1)),
+          side: BorderSide(color: AppColors.kBorderColor),
         ),
         title: const Text(
           'Delete Task',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
         ),
         content: Text(
           'This action cannot be undone.',
-          style: AppTypography.bodyLg.copyWith(color: Colors.white54),
+          style: AppTypography.bodyLg.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text(
               'Cancel',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
           ),
           TextButton(

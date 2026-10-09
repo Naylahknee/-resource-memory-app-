@@ -46,12 +46,12 @@ class UserInfoWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white10,
+                color: AppColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Icon(
                 Icons.arrow_forward,
-                color: Colors.white54,
+                color: AppColors.textMuted,
                 size: 16,
               ),
             ),

@@ -90,7 +90,7 @@ class _ResourceMemoryAppState extends State<ResourceMemoryApp> {
     // Individual input screens handle focus dismissal where needed.
     return MaterialApp.router(
       title: 'NanyNany',
-      theme: AppTheme.dark,
+      theme: AppTheme.light,
       debugShowCheckedModeBanner: false,
       routerConfig: goRouter,
     );
