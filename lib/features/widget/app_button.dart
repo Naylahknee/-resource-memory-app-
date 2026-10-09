@@ -48,7 +48,7 @@ class AppButton extends StatelessWidget {
             Text(
               text,
               style: AppTypography.h3.copyWith(
-                color: AppColors.textOnAccent,
+                color: AppColors.kBlack,
                 fontSize: fontSize ?? 16,
               ),
             ),
