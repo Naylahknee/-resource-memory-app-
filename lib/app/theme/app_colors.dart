@@ -74,7 +74,7 @@ abstract final class AppColors {
   static Color kGreyCard = Colors.white;
 
   /// Warm hairline border for light theme
-  static Color kBorderColor = const Color(0xFFE7DCC8);
+  static const Color kBorderColor = Color(0xFFE7DCC8);
 
   static Color kTabGreyColor = const Color(0xFFA79C8D);
 
