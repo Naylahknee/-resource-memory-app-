@@ -6,9 +6,12 @@ import 'app_typography.dart';
 abstract final class AppTheme {
   AppTheme._();
 
-  static ThemeData get dark => ThemeData(
+  /// Legacy accessor — now returns the light theme.
+  static ThemeData get dark => light;
+
+  static ThemeData get light => ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
+    brightness: Brightness.light,
     colorScheme: _colorScheme,
     scaffoldBackgroundColor: AppColors.background,
     textTheme: _textTheme,
@@ -22,7 +25,17 @@ abstract final class AppTheme {
       titleTextStyle: AppTypography.h3.copyWith(color: AppColors.textPrimary),
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    ),
+
+    cardTheme: CardThemeData(
+      color: AppColors.surface,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: AppColors.kBorderColor, width: 1),
       ),
     ),
 
@@ -39,10 +52,24 @@ abstract final class AppTheme {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.accent,
-        foregroundColor: AppColors.background,
+        foregroundColor: AppColors.textOnAccent,
         elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        textStyle: AppTypography.labelLg,
+      ),
+    ),
+
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.textPrimary,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        side: const BorderSide(color: AppColors.kBorderColor, width: 1.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
         textStyle: AppTypography.labelLg,
       ),
     ),
@@ -51,7 +78,7 @@ abstract final class AppTheme {
       style: TextButton.styleFrom(
         foregroundColor: AppColors.accent,
         textStyle: AppTypography.labelLg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
 
@@ -59,26 +86,26 @@ abstract final class AppTheme {
       style: IconButton.styleFrom(
         foregroundColor: AppColors.textPrimary,
         backgroundColor: AppColors.surfaceVariant,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
 
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.kGreyCard,
+      fillColor: AppColors.surface,
       hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AppColors.kBorderColor, width: 1.5),
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: AppColors.kBorderColor, width: 1.5),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.accent, width: 1.2),
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: AppColors.accent, width: 2),
       ),
     ),
 
@@ -88,21 +115,21 @@ abstract final class AppTheme {
         color: AppColors.textSecondary,
       ),
       side: BorderSide.none,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     ),
 
     // ─── Divider ───────────────────────────────────────────────────────
     dividerTheme: const DividerThemeData(
-      color: AppColors.surfaceVariant,
+      color: AppColors.kBorderColor,
       thickness: 1,
       space: 1,
     ),
 
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: AppColors.accent,
-      foregroundColor: AppColors.background,
-      elevation: 0,
+      foregroundColor: AppColors.textOnAccent,
+      elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
 
@@ -115,16 +142,35 @@ abstract final class AppTheme {
       subtitleTextStyle: AppTypography.bodySm.copyWith(
         color: AppColors.textMuted,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return AppColors.accent;
+        return Colors.transparent;
+      }),
+      checkColor: WidgetStateProperty.all(Colors.white),
+      side: const BorderSide(color: AppColors.textMuted, width: 1.5),
+      shape: const CircleBorder(),
+    ),
+
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: AppColors.textPrimary,
+      contentTextStyle: AppTypography.bodyMd.copyWith(color: Colors.white),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      behavior: SnackBarBehavior.floating,
     ),
   );
 
   static const ColorScheme _colorScheme = ColorScheme(
-    brightness: Brightness.dark,
+    brightness: Brightness.light,
     primary: AppColors.accent,
-    onPrimary: AppColors.background,
-    secondary: AppColors.accentMuted,
-    onSecondary: AppColors.textPrimary,
+    onPrimary: Colors.white,
+    secondary: AppColors.piesViolet,
+    onSecondary: Colors.white,
+    tertiary: AppColors.piesPink,
+    onTertiary: Colors.white,
     surface: AppColors.surface,
     onSurface: AppColors.textPrimary,
     error: AppColors.error,

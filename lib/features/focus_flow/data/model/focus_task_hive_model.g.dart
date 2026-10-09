@@ -32,13 +32,15 @@ class FocusTaskHiveModelAdapter extends TypeAdapter<FocusTaskHiveModel> {
       createdAt: fields[8] as DateTime,
       triaged: fields[9] as bool,
       lastBumpedAt: fields[10] as DateTime?,
+      // Field 11 is new; old rows simply do not have it.
+      resurfaceAt: fields[11] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, FocusTaskHiveModel obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -60,7 +62,9 @@ class FocusTaskHiveModelAdapter extends TypeAdapter<FocusTaskHiveModel> {
       ..writeByte(9)
       ..write(obj.triaged)
       ..writeByte(10)
-      ..write(obj.lastBumpedAt);
+      ..write(obj.lastBumpedAt)
+      ..writeByte(11)
+      ..write(obj.resurfaceAt);
   }
 
   @override

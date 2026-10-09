@@ -41,7 +41,7 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Focus Flow'),
+        title: const Text('ACT'),
       ),
       body: SafeArea(
         child: Column(
@@ -111,7 +111,7 @@ class _SegPill extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: AppTypography.labelLg.copyWith(
-            color: selected ? Colors.black : AppColors.textSecondary,
+            color: selected ? Colors.white : AppColors.textSecondary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),

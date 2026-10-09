@@ -18,6 +18,7 @@ class FocusStore {
   static const _completionsKey = 'completions';
   static const _resolvedExternalKey = 'resolvedExternal';
   static const _externalSkipsKey = 'externalSkips';
+  static const _lowCapacityKey = 'lowCapacity';
 
   static Future<void> initialize() async {
     if (!Hive.isAdapterRegistered(3)) {
@@ -57,6 +58,13 @@ class FocusStore {
   }
 
   static void delete(int id) => _tasks.delete(id);
+
+  // ── Low-capacity day mode ─────────────────────────────────────
+
+  static bool get isLowCapacity =>
+      (_meta.get(_lowCapacityKey, defaultValue: false) as bool?) ?? false;
+
+  static void setLowCapacity(bool value) => _meta.put(_lowCapacityKey, value);
 
   // ── Completions (simple log: task key + timestamp) ─────────────
 
@@ -105,11 +113,14 @@ class FocusStore {
     }
   }
 
-  /// Stored as "skippedCount|lastBumpedIso" per external key.
+  /// Stored as "skippedCount|lastBumpedIso|resurfaceIso" per external key.
+  /// Older rows may only have the first two segments; resurface is optional.
   static Map<String, String> get externalSkips => Map<String, String>.from(
         (_meta.get(_externalSkipsKey, defaultValue: <String, String>{}) as Map?) ?? <String, String>{},
       );
 
+  /// "Not now" for an external item: it leaves the queue and comes back
+  /// in about 2 hours with a "Came back" badge.
   static void bumpExternal(String key) {
     final map = externalSkips;
     final raw = map[key];
@@ -117,17 +128,19 @@ class FocusStore {
     if (raw != null) {
       count = int.tryParse(raw.split('|').first) ?? 0;
     }
-    map[key] = '${count + 1}|${DateTime.now().toIso8601String()}';
+    final now = DateTime.now();
+    map[key] = '${count + 1}|${now.toIso8601String()}|${now.add(const Duration(hours: 2)).toIso8601String()}';
     _meta.put(_externalSkipsKey, map);
   }
 
-  static ({int skippedCount, DateTime? lastBumpedAt}) externalSkipState(String key) {
+  static ({int skippedCount, DateTime? lastBumpedAt, DateTime? resurfaceAt}) externalSkipState(String key) {
     final raw = externalSkips[key];
-    if (raw == null) return (skippedCount: 0, lastBumpedAt: null);
+    if (raw == null) return (skippedCount: 0, lastBumpedAt: null, resurfaceAt: null);
     final parts = raw.split('|');
     return (
       skippedCount: int.tryParse(parts.first) ?? 0,
       lastBumpedAt: parts.length > 1 ? DateTime.tryParse(parts[1]) : null,
+      resurfaceAt: parts.length > 2 ? DateTime.tryParse(parts[2]) : null,
     );
   }
 }
