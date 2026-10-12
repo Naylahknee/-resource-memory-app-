@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -19,11 +21,18 @@ class FocusSessionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<FocusFlowCubit, FocusFlowState>(
       builder: (context, state) {
+        final cubit = context.read<FocusFlowCubit>();
+        // Buffer rule: after a completion, breathe before the next task.
+        if (state.showBreather) {
+          return _BreatherScreen(
+            doneToday: state.doneToday,
+            onDone: () => cubit.dismissBreather(),
+          );
+        }
         if (state.queue.isEmpty) {
           return _EmptyQueue(inboxCount: state.inbox.length);
         }
         final view = state.queue.first;
-        final cubit = context.read<FocusFlowCubit>();
         final isStuck = state.stuckKey == view.key;
         final isTiny = state.tinyKey == view.key;
         final steps = state.microSteps[view.key] ?? const <String>[];
@@ -508,6 +517,129 @@ class _EmptyQueue extends StatelessWidget {
                   ? 'You have $inboxCount dumped item${inboxCount == 1 ? '' : 's'} waiting for a quick tag.'
                   : 'Nothing in the queue. Dump what is on your mind and start here.',
               style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Buffer rule screen: after a task is done, a 60-second breather before
+/// the next task appears. Skip is always visible. Never traps the user.
+class _BreatherScreen extends StatefulWidget {
+  final int doneToday;
+  final VoidCallback onDone;
+  const _BreatherScreen({required this.doneToday, required this.onDone});
+
+  @override
+  State<_BreatherScreen> createState() => _BreatherScreenState();
+}
+
+class _BreatherScreenState extends State<_BreatherScreen> {
+  static const _total = 60;
+  int _left = _total;
+  Timer? _timer;
+
+  static const _suggestions = [
+    'Get some water.',
+    'Roll your shoulders.',
+    'Look out a window for a bit.',
+    'Shake your hands out.',
+    'Take three slow breaths.',
+  ];
+
+  late final String _suggestion =
+      (List<String>.of(_suggestions)..shuffle()).first;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_left <= 1) {
+        t.cancel();
+        widget.onDone();
+      } else if (mounted) {
+        setState(() => _left--);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, size: 64, color: AppColors.accent),
+            const SizedBox(height: 16),
+            Text('Done. Nice.', style: AppTypography.h1, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(
+              widget.doneToday > 0
+                  ? 'That is ${widget.doneToday} done today.'
+                  : 'One done.',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: 140,
+              height: 140,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: _left / _total,
+                    strokeWidth: 10,
+                    backgroundColor: AppColors.surfaceVariant,
+                    color: AppColors.accent,
+                  ),
+                  Text(
+                    '$_left',
+                    style: AppTypography.h1.copyWith(fontSize: 44),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('Take a breather.', style: AppTypography.h4),
+            const SizedBox(height: 6),
+            Text(
+              _suggestion,
+              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: widget.onDone,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  textStyle: AppTypography.h3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                child: const Text('Skip the breather'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The next task appears when the timer ends.',
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
               textAlign: TextAlign.center,
             ),
           ],

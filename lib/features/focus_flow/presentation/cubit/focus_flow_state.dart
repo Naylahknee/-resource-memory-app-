@@ -30,6 +30,10 @@ class FocusFlowState extends Equatable {
   /// Low-capacity day: queue capped at 3, gentler everything.
   final bool lowCapacity;
 
+  /// Buffer rule: after a completion, show the breather screen
+  /// before revealing the next task. Cleared by the timer or Skip.
+  final bool showBreather;
+
   const FocusFlowState({
     this.inbox = const [],
     this.queue = const [],
@@ -40,6 +44,7 @@ class FocusFlowState extends Equatable {
     this.stuckSpiciness = StepSpiciness.medium,
     this.tinyKey,
     this.lowCapacity = false,
+    this.showBreather = false,
   });
 
   FocusTaskView? get stuckTask {
@@ -72,6 +77,7 @@ class FocusFlowState extends Equatable {
     String? tinyKey,
     bool clearTinyKey = false,
     bool? lowCapacity,
+    bool? showBreather,
   }) {
     return FocusFlowState(
       inbox: inbox ?? this.inbox,
@@ -83,6 +89,7 @@ class FocusFlowState extends Equatable {
       stuckSpiciness: stuckSpiciness ?? this.stuckSpiciness,
       tinyKey: clearTinyKey ? null : (tinyKey ?? this.tinyKey),
       lowCapacity: lowCapacity ?? this.lowCapacity,
+      showBreather: showBreather ?? this.showBreather,
     );
   }
 
@@ -97,5 +104,6 @@ class FocusFlowState extends Equatable {
         stuckSpiciness,
         tinyKey,
         lowCapacity,
+        showBreather,
       ];
 }
