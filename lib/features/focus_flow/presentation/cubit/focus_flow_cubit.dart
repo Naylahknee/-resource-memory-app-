@@ -91,6 +91,26 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     final checked = Map<String, Set<int>>.from(state.microStepsChecked)..remove(key);
     emit(state.copyWith(clearStuckKey: true, clearTinyKey: true, microSteps: microSteps, microStepsChecked: checked));
     await load();
+    // Buffer rule: a breather screen shows before the next task is revealed.
+    emit(state.copyWith(showBreather: true));
+  }
+
+  /// Dismisses the breather (timer ended or Skip tapped) and reveals
+  /// the next task in the queue.
+  void dismissBreather() {
+    if (state.showBreather) emit(state.copyWith(showBreather: false));
+  }
+
+  /// Sends a queue item to the front so the Focus tab shows it next.
+  /// Used by the 4-box sort view. Order is recomputed on load anyway,
+  /// so nothing is persisted here.
+  void bringToFront(String key) {
+    final queue = List<FocusTaskView>.from(state.queue);
+    final i = queue.indexWhere((v) => v.key == key);
+    if (i <= 0) return;
+    final item = queue.removeAt(i);
+    queue.insert(0, item);
+    emit(state.copyWith(queue: queue));
   }
 
   /// "Not now": the task leaves the queue and comes back in about
