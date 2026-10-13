@@ -103,6 +103,21 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
                     },
                     onSnooze: (task) =>
                         context.read<FocusFlowCubit>().skip(task.key),
+                    onPickForMe: () {
+                      final picked =
+                          context.read<FocusFlowCubit>().pickForMe();
+                      if (picked) {
+                        setState(() => _tab = 1);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Nothing in your queue yet. Dump a few things first, then I will pick one.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),

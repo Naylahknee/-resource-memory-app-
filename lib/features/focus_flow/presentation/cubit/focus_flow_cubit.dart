@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:bloc/bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -20,12 +22,14 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final lowCapacity = FocusStore.isLowCapacity;
-    final queue = await _buildQueue(lowCapacity: lowCapacity);
+    final badDay = FocusStore.isBadDay;
+    final queue = await _buildQueue(lowCapacity: lowCapacity, badDay: badDay);
     emit(state.copyWith(
       inbox: inbox,
       queue: queue,
       doneToday: FocusStore.completionsToday(),
       lowCapacity: lowCapacity,
+      badDay: badDay,
     ));
   }
 
@@ -145,6 +149,37 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     await load();
   }
 
+  // ── Bad-day ("redo") mode ───────────────────────────────────────
+
+  /// Rough day: only the single most important task stays visible.
+  /// Turning it off restores the full queue.
+  Future<void> setBadDay(bool value) async {
+    FocusStore.setBadDay(value);
+    await load();
+  }
+
+  // ── "Pick for me" (decision paralysis) ─────────────────────────
+
+  /// Randomly brings one queue task to the front so the Focus tab
+  /// shows it next. Returns false when the queue is empty.
+  bool pickForMe() {
+    if (state.queue.isEmpty) return false;
+    final pick = state.queue[Random().nextInt(state.queue.length)];
+    bringToFront(pick.key);
+    return true;
+  }
+
+  // ── "Already did it" (retroactive win logging) ──────────────────
+
+  /// Logs something the user already did: it lands directly as a
+  /// completed task, timestamped now, so they get the check-off.
+  Future<void> logWin(String title) async {
+    final task = FocusStore.add(title);
+    FocusStore.update(task.copyWith(triaged: true, completedAt: DateTime.now()));
+    FocusStore.logCompletion('focus:${task.id}');
+    await load();
+  }
+
   // ── "Make it tiny" 2-minute reframe ───────────────────────────
 
   void openTiny(String key) => emit(state.copyWith(tinyKey: key));
@@ -258,7 +293,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
 
   // ── Queue building ──────────────────────────────────────────
 
-  Future<List<FocusTaskView>> _buildQueue({bool lowCapacity = false}) async {
+  Future<List<FocusTaskView>> _buildQueue({bool lowCapacity = false, bool badDay = false}) async {
     final views = <FocusTaskView>[];
     final resolved = FocusStore.resolvedExternal.toSet();
     final now = DateTime.now();
@@ -326,6 +361,11 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     } catch (_) {}
 
     views.sort(_compareViews);
+    // Rough day: only the single most important task stays visible.
+    // Takes precedence over low-capacity mode.
+    if (badDay) {
+      return views.isEmpty ? views : views.sublist(0, 1);
+    }
     // Low-capacity day: only the top 3 stay visible.
     if (lowCapacity && views.length > 3) {
       return views.sublist(0, 3);

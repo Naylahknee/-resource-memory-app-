@@ -30,6 +30,9 @@ class FocusFlowState extends Equatable {
   /// Low-capacity day: queue capped at 3, gentler everything.
   final bool lowCapacity;
 
+  /// Bad-day ("redo") mode: queue shrinks to the single most important task.
+  final bool badDay;
+
   /// Buffer rule: after a completion, show the breather screen
   /// before revealing the next task. Cleared by the timer or Skip.
   final bool showBreather;
@@ -44,6 +47,7 @@ class FocusFlowState extends Equatable {
     this.stuckSpiciness = StepSpiciness.medium,
     this.tinyKey,
     this.lowCapacity = false,
+    this.badDay = false,
     this.showBreather = false,
   });
 
@@ -77,6 +81,7 @@ class FocusFlowState extends Equatable {
     String? tinyKey,
     bool clearTinyKey = false,
     bool? lowCapacity,
+    bool? badDay,
     bool? showBreather,
   }) {
     return FocusFlowState(
@@ -89,6 +94,7 @@ class FocusFlowState extends Equatable {
       stuckSpiciness: stuckSpiciness ?? this.stuckSpiciness,
       tinyKey: clearTinyKey ? null : (tinyKey ?? this.tinyKey),
       lowCapacity: lowCapacity ?? this.lowCapacity,
+      badDay: badDay ?? this.badDay,
       showBreather: showBreather ?? this.showBreather,
     );
   }
@@ -104,6 +110,7 @@ class FocusFlowState extends Equatable {
         stuckSpiciness,
         tinyKey,
         lowCapacity,
+        badDay,
         showBreather,
       ];
 }

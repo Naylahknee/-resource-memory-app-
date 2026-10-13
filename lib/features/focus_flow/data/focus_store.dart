@@ -19,6 +19,7 @@ class FocusStore {
   static const _resolvedExternalKey = 'resolvedExternal';
   static const _externalSkipsKey = 'externalSkips';
   static const _lowCapacityKey = 'lowCapacity';
+  static const _badDayKey = 'badDay';
 
   static Future<void> initialize() async {
     if (!Hive.isAdapterRegistered(3)) {
@@ -65,6 +66,14 @@ class FocusStore {
       (_meta.get(_lowCapacityKey, defaultValue: false) as bool?) ?? false;
 
   static void setLowCapacity(bool value) => _meta.put(_lowCapacityKey, value);
+
+  // ── Bad-day ("redo") mode ───────────────────────────────────────
+
+  /// Rough day: only the single most important task stays visible.
+  static bool get isBadDay =>
+      (_meta.get(_badDayKey, defaultValue: false) as bool?) ?? false;
+
+  static void setBadDay(bool value) => _meta.put(_badDayKey, value);
 
   // ── Completions (simple log: task key + timestamp) ─────────────
 

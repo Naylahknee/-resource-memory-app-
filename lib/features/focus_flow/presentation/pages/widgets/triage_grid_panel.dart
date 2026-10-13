@@ -13,16 +13,19 @@ class TriageGridPanel extends StatelessWidget {
   final void Function(FocusTaskView task) onStart;
   final void Function(FocusTaskView task) onTiny;
   final void Function(FocusTaskView task) onSnooze;
+  final void Function() onPickForMe;
   const TriageGridPanel({
     super.key,
     required this.onStart,
     required this.onTiny,
     required this.onSnooze,
+    required this.onPickForMe,
   });
 
   @override
   Widget build(BuildContext context) {
     final queue = context.select((FocusFlowCubit c) => c.state.queue);
+    final badDay = context.select((FocusFlowCubit c) => c.state.badDay);
     final doNow = <FocusTaskView>[];
     final tiny = <FocusTaskView>[];
     final park = <FocusTaskView>[];
@@ -49,6 +52,40 @@ class TriageGridPanel extends StatelessWidget {
         Text(
           'Tap any task to start it.',
           style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        _RoughDayToggle(
+          value: badDay,
+          onChanged: (v) => context.read<FocusFlowCubit>().setBadDay(v),
+        ),
+        if (badDay) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Rough day on. Only your top task is showing. The rest can wait.',
+            style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onPickForMe,
+            icon: const Icon(Icons.casino_outlined),
+            label: const Text('Pick for me'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: BorderSide(color: AppColors.kBorderColor),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              textStyle: AppTypography.labelLg,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "Can't decide? I'll choose one.",
+          style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         _QuadrantCard(
@@ -84,6 +121,49 @@ class TriageGridPanel extends StatelessWidget {
           onSecondary: onSnooze,
         ),
       ],
+    );
+  }
+}
+
+/// Compact "Rough day" toggle for the triage screen. Same behavior as the
+/// one on the Focus tab: only the single most important task stays visible.
+class _RoughDayToggle extends StatelessWidget {
+  final bool value;
+  final void Function(bool) onChanged;
+  const _RoughDayToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: value ? AppColors.accent.withValues(alpha: .10) : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: value ? AppColors.accent.withValues(alpha: .45) : AppColors.kBorderColor,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Rough day', style: AppTypography.labelLg),
+                Text(
+                  'Only one task shows. The rest can wait.',
+                  style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: AppColors.accent,
+          ),
+        ],
+      ),
     );
   }
 }

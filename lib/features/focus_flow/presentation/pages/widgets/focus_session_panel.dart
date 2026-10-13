@@ -38,6 +38,7 @@ class FocusSessionPanel extends StatelessWidget {
         final steps = state.microSteps[view.key] ?? const <String>[];
         final checked = state.microStepsChecked[view.key] ?? const <int>{};
         final lowCapacity = state.lowCapacity;
+        final badDay = state.badDay;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
@@ -48,6 +49,11 @@ class FocusSessionPanel extends StatelessWidget {
               value: lowCapacity,
               onChanged: (v) => cubit.setLowCapacity(v),
             ),
+            const SizedBox(height: 10),
+            _BadDayToggle(
+              value: badDay,
+              onChanged: (v) => cubit.setBadDay(v),
+            ),
             const SizedBox(height: 18),
             Text(
               lowCapacity ? 'Start here, gently.' : 'Start here.',
@@ -55,9 +61,11 @@ class FocusSessionPanel extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              lowCapacity
-                  ? 'Just one small thing. That counts.'
-                  : 'One thing. Not the list. This one.',
+              badDay
+                  ? 'The rest can wait. Just this one.'
+                  : lowCapacity
+                      ? 'Just one small thing. That counts.'
+                      : 'One thing. Not the list. This one.',
               style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -174,6 +182,23 @@ class FocusSessionPanel extends StatelessWidget {
                       ),
                     ),
                   ),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => _showLogWinDialog(context),
+                      icon: const Icon(
+                        Icons.add_task_outlined,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
+                      label: Text(
+                        'Already did it',
+                        style: AppTypography.labelMd.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                   if (isStuck) ...[
                     const SizedBox(height: 12),
                     _StuckBreakdown(
@@ -209,7 +234,7 @@ class FocusSessionPanel extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final d = DateTime(due.year, due.month, due.day);
-    if (d.isBefore(today)) return 'OVERDUE';
+    if (d.isBefore(today)) return 'STILL OPEN';
     if (d == today) return 'DUE TODAY';
     return 'DUE ${_monthDay(d)}';
   }
@@ -253,11 +278,109 @@ class _LowCapacityToggle extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.piesPink,
+            activeThumbColor: AppColors.piesPink,
           ),
         ],
       ),
     );
+  }
+}
+
+class _BadDayToggle extends StatelessWidget {
+  final bool value;
+  final void Function(bool) onChanged;
+  const _BadDayToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: value ? AppColors.accent.withValues(alpha: .10) : AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: value ? AppColors.accent.withValues(alpha: .45) : AppColors.kBorderColor,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Rough day', style: AppTypography.labelLg),
+                Text(
+                  'Only one task shows. The rest can wait.',
+                  style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: AppColors.accent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Already did it": lets the user log something they already finished.
+/// It lands directly as a completed task, timestamped now.
+Future<void> _showLogWinDialog(BuildContext context) async {
+  final controller = TextEditingController();
+  final cubit = context.read<FocusFlowCubit>();
+  final submitted = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('What did you already do?', style: AppTypography.h4),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
+        style: AppTypography.bodyLg,
+        decoration: InputDecoration(
+          hintText: 'Made the dentist appointment',
+          hintStyle: AppTypography.bodyLg.copyWith(color: AppColors.textSecondary.withValues(alpha: .5)),
+          filled: true,
+          fillColor: AppColors.surfaceVariant,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.kBorderColor),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.accent,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Log it'),
+        ),
+      ],
+    ),
+  );
+  final text = controller.text.trim();
+  controller.dispose();
+  if (submitted == true && text.isNotEmpty && context.mounted) {
+    await cubit.logWin(text);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Logged. That is a win.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
 
