@@ -49,7 +49,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (mounted) context.go('/');
   }
   Future<void> _capture() async {
-    final memory = await showMemoryCapture(context);
+    final before = ResourceStore.getAll().map((r) => r.id).toSet();
+    Resource? memory = await showMemoryCapture(context);
+    // Dragging away a successful capture must not lose onboarding progress.
+    if (memory == null) {
+      final added = ResourceStore.getAll().where((r) => !before.contains(r.id));
+      if (added.isNotEmpty) memory = added.first;
+    }
     if (!mounted || memory == null) return;
     setState(() { _memory = memory; _match = null; _query.clear(); });
     await _advance(2);
@@ -58,7 +64,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     // Explicitly chosen example, stored only on this device, without a fake URL.
-    final example = Resource(
+    final existing = ResourceStore.getById('nanynany-guided-example');
+    final example = existing ?? Resource(
       id: 'nanynany-guided-example', title: 'Community funding guide — example',
       platform: 'Guided example', summary: 'A sample article about grants for starting a community. Start with local foundations, then prepare a clear project budget.',
       whyUseful: 'An example for practicing how to save and find a memory.',
@@ -66,7 +73,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       topics: const ['community', 'funding', 'grants', 'article'],
       type: ResourceType.article, savedAt: DateTime.now(),
     );
-    await ResourceStore.box.put(example.id, example.toMap());
+    if (existing == null) await ResourceStore.box.put(example.id, example.toMap());
     if (!mounted) return;
     setState(() { _memory = example; _match = null; _query.clear(); _busy = false; });
     await _advance(2);
@@ -100,7 +107,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) => TodoistLightScope(child: Scaffold(
-    body: SafeArea(child: SingleChildScrollView(
+    body: GestureDetector(onVerticalDragEnd: (details) {
+      if (_step == 0 && !_busy && (details.primaryVelocity ?? 0) < -600) _advance(1);
+    }, child: SafeArea(child: SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
       child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -198,6 +207,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           if (_notice != null) Padding(padding: const EdgeInsets.only(top: 16), child: Semantics(liveRegion: true, child: Text(_notice!))),
         ]),
       )),
-    )),
+    ))),
   ));
 }

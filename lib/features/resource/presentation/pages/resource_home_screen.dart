@@ -48,7 +48,7 @@ class _ResourceHomeScreenState extends State<ResourceHomeScreen> {
           final now = DateTime.now();
           final available = memories.where((r) => MemorySurfaceStore.eligible(r.id, now)).toList();
           final suggestions = <({Resource memory, String reason})>[];
-          for (final commitment in commitments.where((c) => c.dueAt.isBefore(now.add(const Duration(days: 7))))) {
+          for (final commitment in commitments.where((c) => c.status != CommitmentStatus.needsConfirmation && c.dueAt.isBefore(now.add(const Duration(days: 7))))) {
             for (final match in MemorySearch.find(available, commitment.title).take(1)) {
               if (suggestions.any((s) => s.memory.id == match.resource.id)) continue;
               suggestions.add((memory: match.resource, reason: 'Matches your reminder “${commitment.title}”.'));
