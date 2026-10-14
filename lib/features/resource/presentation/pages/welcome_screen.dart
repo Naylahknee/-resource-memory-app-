@@ -22,6 +22,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   bool _leaving = false;
 
   late final AnimationController _hintController;
+  late final AnimationController _exitController;
 
   @override
   void initState() {
@@ -30,11 +31,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
+    _exitController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
   }
 
   @override
   void dispose() {
     _hintController.dispose();
+    _exitController.dispose();
     super.dispose();
   }
 
@@ -44,11 +50,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     await WelcomeStore.markSeen();
     if (!mounted) return;
     // Slide the whole screen up and fade as she enters.
-    setState(() {
-      _dragOffset = -MediaQuery.of(context).size.height;
-      _opacity = 0;
+    final height = MediaQuery.of(context).size.height;
+    final start = _dragOffset;
+    _exitController.addListener(() {
+      if (!mounted) return;
+      setState(() {
+        _dragOffset = start + (-height - start) * _exitController.value;
+        _opacity = 1 - _exitController.value;
+      });
     });
-    await Future.delayed(const Duration(milliseconds: 450));
+    await _exitController.forward();
     if (!mounted) return;
     context.go(Routes.homeScreen);
   }
@@ -82,93 +93,93 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       body: GestureDetector(
         onVerticalDragUpdate: _onDragUpdate,
         onVerticalDragEnd: _onDragEnd,
-        child: AnimatedContainer(
-          duration: _leaving
-              ? const Duration(milliseconds: 450)
-              : const Duration(milliseconds: 120),
-          curve: _leaving ? Curves.easeIn : Curves.easeOut,
-          transform: Matrix4.translationValues(0, _dragOffset, 0),
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: _opacity,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 48),
-                    Text(
-                      'NanyNany',
-                      style: AppTypography.labelLg.copyWith(
-                        color: AppColors.accent,
-                        letterSpacing: 3,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'You don\u2019t have to\nremember to remember.',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.h1.copyWith(
-                        color: AppColors.textPrimary,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Your second brain for the things\nthat slip away.',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodyLg.copyWith(
-                        color: AppColors.textSecondary,
-                        height: 1.5,
-                      ),
-                    ),
-                    const Spacer(),
-                    // The mascot, waving hello.
-                    Image.asset(
-                      'assets/mascot_wave.png',
-                      width: 240,
-                      height: 240,
-                      fit: BoxFit.contain,
-                    ),
-                    const Spacer(),
-                    // Swipe-up hint.
-                    GestureDetector(
-                      onTap: _enter,
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 36, top: 12),
-                        child: Column(
-                          children: [
-                            AnimatedBuilder(
-                              animation: _hintController,
-                              builder: (context, child) {
-                                return Transform.translate(
-                                  offset: Offset(
-                                    0,
-                                    -6 * _hintController.value,
-                                  ),
-                                  child: child,
-                                );
-                              },
-                              child: const Icon(
-                                Icons.keyboard_arrow_up_rounded,
-                                color: AppColors.accent,
-                                size: 36,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Swipe up to get started',
-                              style: AppTypography.labelMd.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: Transform.translate(
+            offset: Offset(0, _dragOffset),
+            child: Opacity(
+              opacity: _opacity,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 48),
+                      Text(
+                        'NanyNany',
+                        style: AppTypography.labelLg.copyWith(
+                          color: AppColors.accent,
+                          letterSpacing: 3,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 20),
+                      Text(
+                        'You don\u2019t have to\nremember to remember.',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.h1.copyWith(
+                          color: AppColors.textPrimary,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Your second brain for the things\nthat slip away.',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyLg.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      // The mascot, waving hello.
+                      Image.asset(
+                        'assets/mascot_wave.png',
+                        width: 240,
+                        height: 240,
+                        fit: BoxFit.contain,
+                      ),
+                      const Spacer(),
+                      // Swipe-up hint.
+                      GestureDetector(
+                        onTap: _enter,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 36, top: 12),
+                          child: Column(
+                            children: [
+                              AnimatedBuilder(
+                                animation: _hintController,
+                                builder: (context, child) {
+                                  return Transform.translate(
+                                    offset: Offset(
+                                      0,
+                                      -6 * _hintController.value,
+                                    ),
+                                    child: child,
+                                  );
+                                },
+                                child: const Icon(
+                                  Icons.keyboard_arrow_up_rounded,
+                                  color: AppColors.accent,
+                                  size: 36,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Swipe up to get started',
+                                style: AppTypography.labelMd.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
