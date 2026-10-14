@@ -1,314 +1,123 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:resource_memory/app/routing/app_route.dart';
-import 'package:resource_memory/app/theme/app_typography.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:resource_memory/features/commitment/data/commitment_store.dart';
+import 'package:resource_memory/features/commitment/domain/commitment.dart';
+import 'package:resource_memory/features/resource/data/memory_surface_store.dart';
+import 'package:resource_memory/features/resource/data/resource_store.dart';
+import 'package:resource_memory/features/resource/domain/memory_search.dart';
+import 'package:resource_memory/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/widget/memory_capture_sheet.dart';
+import 'package:resource_memory/features/widget/memory_card.dart';
+import 'package:resource_memory/features/widget/memory_mascot.dart';
 import 'package:resource_memory/features/widget/todoist_light.dart';
 
-class ResourceHomeScreen extends StatelessWidget {
+class ResourceHomeScreen extends StatefulWidget {
   const ResourceHomeScreen({super.key});
+  @override
+  State<ResourceHomeScreen> createState() => _ResourceHomeScreenState();
+}
+
+class _ResourceHomeScreenState extends State<ResourceHomeScreen> {
+  final _query = TextEditingController();
+  @override
+  void dispose() { _query.dispose(); super.dispose(); }
+  void _find([String? query]) {
+    final value = (query ?? _query.text).trim();
+    if (value.isNotEmpty) context.go('/library?q=${Uri.encodeComponent(value)}');
+  }
+
+  Future<void> _later(Resource memory, bool lessOften) async {
+    await MemorySurfaceStore.later(memory.id, lessOften: lessOften);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(lessOften
+        ? 'This memory will stay out of suggestions for two weeks.'
+        : 'We’ll leave this memory until tomorrow.')));
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return TodoistLightScope(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 900;
-        final isTablet = constraints.maxWidth >= 650;
-        final horizontalPadding = isDesktop ? 40.0 : (isTablet ? 28.0 : 20.0);
-
-        return Scaffold(
-          floatingActionButton: isDesktop
-              ? null
-              : FloatingActionButton(
-                  onPressed: () => context.go('/${Routes.saveResourceScreen}'),
-                  child: const Icon(Icons.add),
-                ),
-          body: SafeArea(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                  vertical: isDesktop ? 36 : 20,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1180),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Header(isDesktop: isDesktop),
-                        SizedBox(height: isDesktop ? 32 : 28),
-                        _Navigation(isDesktop: isDesktop),
-                        SizedBox(height: isDesktop ? 28 : 24),
-                        if (isDesktop)
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: _ActionCard(
-                                  icon: Icons.auto_awesome,
-                                  title: 'What are you working on?',
-                                  body: 'Describe the project. We’ll surface things you already saved that may help.',
-                                  action: 'Find useful resources',
-                                  onTap: () => context.go('/${Routes.projectMatchScreen}'),
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: _ActionCard(
-                                  icon: Icons.add_link,
-                                  title: 'Save something useful',
-                                  body: 'Threads, YouTube, GitHub, websites, screenshots — save it with context.',
-                                  action: 'Save a resource',
-                                  onTap: () => context.go('/${Routes.saveResourceScreen}'),
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: _ActionCard(
-                                  icon: Icons.mic_none_rounded,
-                                  title: 'Say it before you forget it',
-                                  body: 'Record an idea or import a voice memo. We’ll transcribe it and make it useful again later.',
-                                  action: 'Save a voice memory',
-                                  onTap: () => context.go('/${Routes.voiceMemoryScreen}'),
-                                ),
-                              ),
-                            ],
-                          )
-                        else ...[
-                          _ActionCard(
-                            icon: Icons.auto_awesome,
-                            title: 'What are you working on?',
-                            body: 'Describe the project. We’ll surface things you already saved that may help.',
-                            action: 'Find useful resources',
-                            onTap: () => context.go('/${Routes.projectMatchScreen}'),
-                          ),
-                          const SizedBox(height: 16),
-                          _ActionCard(
-                            icon: Icons.add_link,
-                            title: 'Save something useful',
-                            body: 'Threads, YouTube, GitHub, websites, screenshots — save it with context.',
-                            action: 'Save a resource',
-                            onTap: () => context.go('/${Routes.saveResourceScreen}'),
-                          ),
-                          const SizedBox(height: 16),
-                          _ActionCard(
-                            icon: Icons.mic_none_rounded,
-                            title: 'Say it before you forget it',
-                            body: 'Record an idea or import a voice memo. We’ll transcribe it and make it useful again later.',
-                            action: 'Save a voice memory',
-                            onTap: () => context.go('/${Routes.voiceMemoryScreen}'),
-                          ),
-                        ],
-                        SizedBox(height: isDesktop ? 44 : 28),
-                        _ReturnSection(isDesktop: isDesktop),
-                        const SizedBox(height: 32),
-                        Text(
-                          'Save it once. Find it when it matters.',
-                          style: AppTypography.bodyMd.copyWith(color: TodoistLight.muted),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+  Widget build(BuildContext context) => TodoistLightScope(child: Scaffold(
+    body: SafeArea(child: ValueListenableBuilder<Box<Map>>(
+      valueListenable: ResourceStore.box.listenable(),
+      builder: (context, _, __) => ValueListenableBuilder<Box<Map>>(
+        valueListenable: CommitmentStore.box.listenable(),
+        builder: (context, _, __) {
+          final memories = ResourceStore.getAll().where((r) => r.status != ResourceStatus.archived).toList();
+          final commitments = CommitmentStore.getAll().where((c) => c.status != CommitmentStatus.done && c.status != CommitmentStatus.dismissed).toList();
+          final now = DateTime.now();
+          final available = memories.where((r) => MemorySurfaceStore.eligible(r.id, now)).toList();
+          final suggestions = <({Resource memory, String reason})>[];
+          for (final commitment in commitments.where((c) => c.dueAt.isBefore(now.add(const Duration(days: 7))))) {
+            for (final match in MemorySearch.find(available, commitment.title).take(1)) {
+              if (suggestions.any((s) => s.memory.id == match.resource.id)) continue;
+              suggestions.add((memory: match.resource, reason: 'Matches your reminder “${commitment.title}”.'));
+            }
+          }
+          final older = available.where((r) => now.difference(r.savedAt).inDays >= 2).toList()
+            ..sort((a, b) => a.savedAt.compareTo(b.savedAt));
+          for (final memory in older) {
+            if (suggestions.any((s) => s.memory.id == memory.id)) continue;
+            suggestions.add((memory: memory, reason: 'Saved ${now.difference(memory.savedAt).inDays} days ago. A chance to revisit it.'));
+            if (suggestions.length >= 3) break;
+          }
+          return SingleChildScrollView(padding: const EdgeInsets.all(24), child: Center(child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 920),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text('Your memory, when you need it.', style: Theme.of(context).textTheme.headlineMedium)),
+                IconButton(tooltip: 'Sync devices', onPressed: () => context.push('/sync'), icon: const Icon(Icons.cloud_sync_outlined)),
+              ]),
+              const SizedBox(height: 8),
+              const Text('Useful links, screenshots, ideas, and commitments. Together, with their context.'),
+              const SizedBox(height: 24),
+              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(
+                color: TodoistLight.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: TodoistLight.hairline)),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Save it before it slips away.', style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 8),
+                    const Text('One place for something Future You may need.'),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(onPressed: () => showMemoryCapture(context), icon: const Icon(Icons.add), label: const Text('Save something')),
+                  ])),
+                  if (MediaQuery.sizeOf(context).width >= 650) const Padding(padding: EdgeInsets.only(left: 20), child: MemoryMascot(size: 140)),
+                ]),
               ),
-            ),
-        );
+              const SizedBox(height: 28),
+              Text('What are you trying to find?', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              TextField(controller: _query, textInputAction: TextInputAction.search, onSubmitted: _find,
+                decoration: InputDecoration(labelText: 'Search your memory', hintText: 'A title, source, or words you remember', prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(tooltip: 'Find memories', onPressed: _find, icon: const Icon(Icons.arrow_forward)))),
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                ActionChip(label: const Text('Screenshots'), onPressed: () => _find('screenshot')),
+                ActionChip(label: const Text('Voice memories'), onPressed: () => _find('voice')),
+                TextButton(onPressed: () => context.push('/project-match'), child: const Text('Find resources for something I’m doing')),
+              ]),
+              const SizedBox(height: 28),
+              if (memories.isEmpty) ...[
+                Text('A little less to hold in your head.', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                const Text('Save your first memory, or try a guided example to see how saving and finding work.'),
+                const SizedBox(height: 12),
+                OutlinedButton(onPressed: () => context.push('/welcome?tour=1'), child: const Text('Try a guided example')),
+              ] else ...[
+                Text(suggestions.isEmpty ? 'Saved recently' : 'Useful again', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                for (final suggestion in suggestions.take(3)) Padding(padding: const EdgeInsets.only(bottom: 12), child: MemoryCard(
+                  memory: suggestion.memory, reason: suggestion.reason,
+                  onLater: () => _later(suggestion.memory, false), onLessOften: () => _later(suggestion.memory, true))),
+                if (suggestions.isEmpty) for (final memory in memories.take(3)) Padding(padding: const EdgeInsets.only(bottom: 12), child: MemoryCard(memory: memory)),
+              ],
+              const SizedBox(height: 20),
+              TextButton(onPressed: () => context.go('/commitments'), child: Text('${commitments.where((c) => c.status != CommitmentStatus.needsConfirmation).length} confirmed reminders · Review reminders')),
+              TextButton(onPressed: () => context.push('/welcome?tour=1'), child: const Text('Practice saving and finding')),
+            ]),
+          )));
         },
       ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final bool isDesktop;
-  const _Header({required this.isDesktop});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Remember what helps.', style: AppTypography.h2),
-              const SizedBox(height: 8),
-              Text(
-                'Save useful coding resources and bring them back when a project needs them.',
-                style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        if (!isDesktop)
-          IconButton.filledTonal(
-            tooltip: 'Sync devices',
-            onPressed: () => context.go('/${Routes.syncScreen}'),
-            icon: const Icon(Icons.cloud_sync_outlined),
-          ),
-        if (isDesktop) ...[
-          OutlinedButton.icon(
-            onPressed: () => context.go('/${Routes.syncScreen}'),
-            icon: const Icon(Icons.cloud_sync_outlined),
-            label: const Text('Sync devices'),
-          ),
-          const SizedBox(width: 10),
-          FilledButton.icon(
-            onPressed: () => context.go('/${Routes.saveResourceScreen}'),
-            icon: const Icon(Icons.add_link),
-            label: const Text('Save resource'),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _Navigation extends StatelessWidget {
-  final bool isDesktop;
-  const _Navigation({required this.isDesktop});
-
-  @override
-  Widget build(BuildContext context) {
-    final nav = Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: TodoistLight.hairline,
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: _NavPill(label: 'NOW', selected: true, onTap: () {})),
-          Expanded(child: _NavPill(label: 'ACT', highlight: TodoistLight.warm, onTap: () => context.go('/${Routes.focusFlowScreen}'))),
-          Expanded(child: _NavPill(label: 'REMEMBER', onTap: () => context.go('/${Routes.commitmentsScreen}'))),
-          Expanded(child: _NavPill(label: 'LIBRARY', onTap: () => context.go('/${Routes.libraryScreen}'))),
-        ],
-      ),
-    );
-    return isDesktop ? SizedBox(width: 560, child: nav) : nav;
-  }
-}
-
-class _ReturnSection extends StatelessWidget {
-  final bool isDesktop;
-  const _ReturnSection({required this.isDesktop});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(isDesktop ? 24 : 20),
-      decoration: BoxDecoration(
-        color: TodoistLight.surface.withValues(alpha: .72),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: TodoistLight.hairline),
-      ),
-      child: isDesktop
-          ? Row(
-              children: [
-                const Expanded(child: _ReturnCopy()),
-                const SizedBox(width: 24),
-                OutlinedButton.icon(
-                  onPressed: () => context.go('/${Routes.libraryScreen}'),
-                  icon: const Icon(Icons.history),
-                  label: const Text('Browse saved resources'),
-                ),
-              ],
-            )
-          : const _ReturnCopy(),
-    );
-  }
-}
-
-class _ReturnCopy extends StatelessWidget {
-  const _ReturnCopy();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Useful again', style: AppTypography.h3),
-        const SizedBox(height: 6),
-        Text(
-          'As your library grows, this space will bring older resources back when they become relevant again.',
-          style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
-        ),
-      ],
-    );
-  }
-}
-
-class _NavPill extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final Color? highlight;
-  final VoidCallback onTap;
-  const _NavPill({required this.label, required this.onTap, this.selected = false, this.highlight});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(30),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          color: selected ? TodoistLight.verb : (highlight ?? Colors.transparent),
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: AppTypography.labelLg.copyWith(
-            fontSize: 13.5,
-            color: (selected || highlight != null) ? Colors.white : TodoistLight.muted,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String body;
-  final String action;
-  final VoidCallback onTap;
-  const _ActionCard({required this.icon, required this.title, required this.body, required this.action, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: TodoistLight.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: TodoistLight.hairline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            backgroundColor: TodoistLight.verbMuted,
-            child: Icon(icon, color: TodoistLight.verb),
-          ),
-          const SizedBox(height: 16),
-          Text(title, style: AppTypography.h3),
-          const SizedBox(height: 8),
-          Text(body, style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
-          const SizedBox(height: 18),
-          TextButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.arrow_forward),
-            label: Text(action),
-          ),
-        ],
-      ),
-    );
-  }
+    )),
+  ));
 }

@@ -1,136 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:resource_memory/app/routing/app_route.dart';
-import 'package:resource_memory/features/widget/todoist_light.dart';
-import 'package:resource_memory/app/theme/app_typography.dart';
-import 'package:resource_memory/features/resource/data/resource_link_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
 import 'package:resource_memory/features/resource/domain/resource.dart';
+import 'package:resource_memory/features/resource/domain/memory_search.dart';
+import 'package:resource_memory/features/widget/memory_capture_sheet.dart';
+import 'package:resource_memory/features/widget/memory_card.dart';
+import 'package:resource_memory/features/widget/memory_mascot.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key});
-  @override State<LibraryScreen> createState() => _LibraryScreenState();
+  const LibraryScreen({super.key, this.initialQuery = ''});
+  final String initialQuery;
+  @override
+  State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _search;
   String _query = '';
   ResourceType? _filter;
-  @override void dispose() { _searchController.dispose(); super.dispose(); }
-
-  @override Widget build(BuildContext context) {
-    return TodoistLightScope(child: Scaffold(body: SafeArea(child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back)),
-          const SizedBox(width: 4),
-          Expanded(child: Text('Your memory', style: AppTypography.h3)),
-          IconButton(tooltip: 'Save something', onPressed: () => context.go('/${Routes.saveResourceScreen}'), icon: const Icon(Icons.add)),
-        ]),
-        const SizedBox(height: 18),
-        Text('Everything you asked NanyNany to remember.', style: AppTypography.h2),
-        const SizedBox(height: 6),
-        Text('Links, screenshots, voice memories, articles, tools and tab sessions stay together here.', style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
+  @override
+  void initState() { super.initState(); _query = widget.initialQuery; _search = TextEditingController(text: _query); }
+  @override
+  void didUpdateWidget(LibraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialQuery != widget.initialQuery) { _query = widget.initialQuery; _search.text = _query; }
+  }
+  @override
+  void dispose() { _search.dispose(); super.dispose(); }
+  Future<void> _delete(Resource memory) async {
+    await ResourceStore.remove(memory.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed ${memory.title}'), action: SnackBarAction(
+      label: 'Undo', onPressed: () => ResourceStore.save(memory))));
+  }
+  Future<void> _filters() => showModalBottomSheet<void>(context: context, useRootNavigator: true, useSafeArea: true,
+    backgroundColor: TodoistLight.canvas, builder: (context) => Padding(padding: const EdgeInsets.all(24), child: Column(
+      mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Filter memories', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        TextField(
-          controller: _searchController,
-          onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
-          decoration: InputDecoration(
-            hintText: 'What are you trying to find?', prefixIcon: const Icon(Icons.search), filled: true, fillColor: TodoistLight.surface,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: TodoistLight.hairline)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: TodoistLight.hairline)),
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(height: 40, child: ListView(scrollDirection: Axis.horizontal, children: [
-          _FilterChip(label: 'All', selected: _filter == null, onTap: () => setState(() => _filter = null)),
-          _FilterChip(label: 'Tab sessions', selected: _filter == ResourceType.session, onTap: () => setState(() => _filter = ResourceType.session)),
-          _FilterChip(label: 'Screenshots', selected: _filter == ResourceType.screenshot, onTap: () => setState(() => _filter = ResourceType.screenshot)),
-          _FilterChip(label: 'Web', selected: _filter == ResourceType.website, onTap: () => setState(() => _filter = ResourceType.website)),
-          _FilterChip(label: 'Videos', selected: _filter == ResourceType.video, onTap: () => setState(() => _filter = ResourceType.video)),
-          _FilterChip(label: 'Articles', selected: _filter == ResourceType.article, onTap: () => setState(() => _filter = ResourceType.article)),
-          _FilterChip(label: 'Tools', selected: _filter == ResourceType.tool, onTap: () => setState(() => _filter = ResourceType.tool)),
-        ])),
-        const SizedBox(height: 12),
-        Expanded(child: ValueListenableBuilder<Box<Map>>(
-          valueListenable: ResourceStore.box.listenable(),
-          builder: (context, _, __) {
-            final all = ResourceStore.getAll()..sort((a, b) => b.savedAt.compareTo(a.savedAt));
-            final resources = all.where((r) => (_filter == null || r.type == _filter) && (_query.isEmpty || r.searchableText.contains(_query))).toList();
-            if (resources.isEmpty) return Center(child: Text(all.isEmpty ? 'Nothing saved yet.\nSave something once and it will live here.' : 'Nothing matches this view.', textAlign: TextAlign.center, style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)));
-            return ListView.separated(itemCount: resources.length, separatorBuilder: (_, __) => const SizedBox(height: 12), itemBuilder: (context, index) => _ResourceCard(resource: resources[index]));
-          },
-        )),
-      ]),
-    ))));
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
-  final String label; final bool selected; final VoidCallback onTap;
-  @override Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(label), selected: selected, onSelected: (_) => onTap()));
-}
-
-class _ResourceCard extends StatelessWidget {
-  const _ResourceCard({required this.resource});
-  final Resource resource;
-  Future<void> _openLink(BuildContext context) async {
-    await ResourceLinkService.open(context, resource.url);
-  }
-  void _openMemory(BuildContext context) => context.go('/resource/${resource.id}');
-  Future<void> _delete(BuildContext context) async {
-    await ResourceStore.remove(resource.id);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed ${resource.title}')));
-  }
-
-  @override Widget build(BuildContext context) {
-    final hasLink = ResourceLinkService.normalize(resource.url) != null;
-    final isSession = resource.type == ResourceType.session;
-    final tabCount = resource.session?['tabCount'];
-    return InkWell(
-      borderRadius: BorderRadius.circular(22), onTap: () => _openMemory(context),
-      child: Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: TodoistLight.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: TodoistLight.hairline)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          CircleAvatar(backgroundColor: TodoistLight.verbMuted, child: Icon(_iconFor(resource.type), color: TodoistLight.verb)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(resource.title, style: AppTypography.h3)),
-              if (hasLink && !isSession) IconButton(tooltip: 'Open original', onPressed: () => _openLink(context), icon: const Icon(Icons.open_in_new, size: 19)),
-              const Icon(Icons.chevron_right),
-              PopupMenuButton<String>(onSelected: (value) { if (value == 'delete') _delete(context); if (value == 'open') _openMemory(context); }, itemBuilder: (_) => const [PopupMenuItem(value: 'open', child: Text('Open memory')), PopupMenuItem(value: 'delete', child: Text('Delete'))]),
-            ]),
-            const SizedBox(height: 3),
-            Text(isSession ? '${tabCount ?? 'Saved'} tabs · Tab session' : _labelFor(resource), style: AppTypography.labelMd.copyWith(color: TodoistLight.verb)),
-            const SizedBox(height: 7),
-            Text(resource.summary, maxLines: 3, overflow: TextOverflow.ellipsis, style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
-            if (isSession && resource.topics.isNotEmpty) ...[const SizedBox(height: 10), Text(resource.topics.take(3).join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary))],
-            const SizedBox(height: 8),
-            Text(_savedLabel(resource.savedAt), style: AppTypography.bodySm.copyWith(color: TodoistLight.muted)),
-          ])),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          ChoiceChip(label: const Text('All'), selected: _filter == null, onSelected: (_) { setState(() => _filter = null); Navigator.pop(context); }),
+          for (final type in ResourceType.values) ChoiceChip(label: Text(type == ResourceType.session ? 'Tab sessions' : type.name), selected: _filter == type,
+            onSelected: (_) { setState(() => _filter = type); Navigator.pop(context); }),
         ]),
-      ),
-    );
-  }
+      ])));
 
-  String _labelFor(Resource resource) => [resource.type.name, resource.creator, resource.platform].whereType<String>().where((e) => e.isNotEmpty).join(' · ');
-  String _savedLabel(DateTime date) { final local = date.toLocal(); return 'Saved ${local.month}/${local.day}/${local.year}'; }
-  IconData _iconFor(ResourceType type) {
-    switch (type) {
-      case ResourceType.session: return Icons.tab_rounded;
-      case ResourceType.github: return Icons.code;
-      case ResourceType.video: return Icons.play_arrow;
-      case ResourceType.screenshot: return Icons.image_outlined;
-      case ResourceType.tool: return Icons.build_outlined;
-      case ResourceType.tutorial: return Icons.school_outlined;
-      case ResourceType.article: return Icons.article_outlined;
-      case ResourceType.code: return Icons.code_rounded;
-      case ResourceType.website: return Icons.language;
-      default: return Icons.bookmark_outline;
-    }
-  }
+  @override
+  Widget build(BuildContext context) => TodoistLightScope(child: Scaffold(body: SafeArea(child: Center(child: ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 980), child: Padding(padding: const EdgeInsets.all(24), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text('Your memory', style: Theme.of(context).textTheme.headlineSmall)),
+          IconButton(tooltip: 'Save something', onPressed: () => showMemoryCapture(context), icon: const Icon(Icons.add)),
+        ]),
+        const SizedBox(height: 8),
+        const Text('Everything you asked NanyNany to remember, with its original context.'),
+        const SizedBox(height: 20),
+        TextField(controller: _search, onChanged: (value) => setState(() => _query = value.trim()), textInputAction: TextInputAction.search,
+          decoration: InputDecoration(labelText: 'Search your memory', hintText: 'A title, source, or words you remember', prefixIcon: const Icon(Icons.search),
+            suffixIcon: _query.isEmpty ? null : IconButton(tooltip: 'Clear search', onPressed: () { _search.clear(); setState(() => _query = ''); }, icon: const Icon(Icons.close)))),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          ChoiceChip(label: const Text('All'), selected: _filter == null, onSelected: (_) => setState(() => _filter = null)),
+          ChoiceChip(label: const Text('Screenshots'), selected: _filter == ResourceType.screenshot, onSelected: (_) => setState(() => _filter = ResourceType.screenshot)),
+          TextButton.icon(onPressed: _filters, icon: const Icon(Icons.tune, size: 18), label: Text(_filter == null || _filter == ResourceType.screenshot ? 'More filters' : _filter!.name)),
+        ]),
+        const SizedBox(height: 16),
+        Expanded(child: ValueListenableBuilder<Box<Map>>(valueListenable: ResourceStore.box.listenable(), builder: (context, _, __) {
+          final all = ResourceStore.getAll().where((r) => r.status != ResourceStatus.archived).toList();
+          final matches = _query.isEmpty ? <MemoryMatch>[] : MemorySearch.find(all, _query);
+          final candidates = _query.isEmpty ? all : matches.map((m) => m.resource).toList();
+          final memories = candidates.where((r) => _filter == null || r.type == _filter).toList();
+          if (memories.isEmpty) return SingleChildScrollView(child: Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Column(children: [
+            const MemoryMascot(mood: MemoryMood.searching),
+            const SizedBox(height: 16),
+            Text(all.isEmpty ? 'Nothing saved yet.' : 'No matching memory yet.', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            Text(all.isEmpty ? 'Save something once. Its context stays here with it.' : 'Try a title, source, or topic, or clear the filters.', textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            if (all.isEmpty) ...[
+              FilledButton(onPressed: () => showMemoryCapture(context), child: const Text('Save my first memory')),
+              const SizedBox(height: 8),
+              TextButton(onPressed: () => context.push('/welcome?tour=1'), child: const Text('Try a guided example')),
+            ] else OutlinedButton(onPressed: () { _search.clear(); setState(() { _query = ''; _filter = null; }); }, child: const Text('Clear search and filters')),
+          ])))));
+          return ListView.separated(itemCount: memories.length, separatorBuilder: (_, __) => const SizedBox(height: 12), itemBuilder: (_, index) {
+            final memory = memories[index];
+            final reason = _query.isEmpty ? null : matches.firstWhere((m) => m.resource.id == memory.id).explanation;
+            return MemoryCard(memory: memory, reason: reason, onDelete: () => _delete(memory));
+          });
+        })),
+      ],
+    )),
+  )))));
 }

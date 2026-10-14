@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -143,7 +144,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   children: [
                     Row(children: [
                       IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => context.canPop() ? context.pop() : context.go('/'),
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),

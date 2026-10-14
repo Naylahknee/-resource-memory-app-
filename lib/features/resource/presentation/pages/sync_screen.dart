@@ -93,7 +93,7 @@ class _SyncScreenState extends State<SyncScreen> {
                   children: [
                     Row(children: [
                       IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => context.canPop() ? context.pop() : context.go('/'),
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),

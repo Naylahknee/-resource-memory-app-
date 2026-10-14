@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
-import 'package:resource_memory/app/routing/app_route.dart';
+import 'package:resource_memory/features/widget/memory_app_shell.dart';
 import 'package:resource_memory/features/commitment/presentation/pages/commitments_screen.dart';
 import 'package:resource_memory/features/focus_flow/presentation/pages/focus_flow_screen.dart';
 import 'package:resource_memory/features/commitment/presentation/pages/spoken_reminder_settings_screen.dart';
@@ -15,28 +15,23 @@ import 'package:resource_memory/features/resource/presentation/pages/voice_memor
 import 'package:resource_memory/features/resource/presentation/pages/welcome_screen.dart';
 import 'package:resource_memory/features/resource/data/welcome_store.dart';
 
-final List<RouteBase> resourceRoutes = <RouteBase>[
-  GoRoute(
-    path: '/${Routes.welcomeScreen}',
-    builder: (context, state) => const WelcomeScreen(),
+final memoryRootNavigatorKey = GlobalKey<NavigatorState>();
+final List<RouteBase> resourceRoutes = [
+  GoRoute(path: '/welcome', redirect: (_, state) => WelcomeStore.hasSeenWelcome && state.uri.queryParameters['tour'] != '1' ? '/' : null, builder: (context, state) => WelcomeScreen(isTour: state.uri.queryParameters['tour'] == '1')),
+  StatefulShellRoute.indexedStack(
+    builder: (context, state, navigation) => MemoryAppShell(navigation: navigation),
+    branches: [
+      StatefulShellBranch(routes: [GoRoute(path: '/', redirect: (_, __) => WelcomeStore.hasSeenWelcome ? null : '/welcome', builder: (_, __) => const ResourceHomeScreen())]),
+      StatefulShellBranch(routes: [GoRoute(path: '/focus', builder: (_, __) => const FocusFlowScreen())]),
+      StatefulShellBranch(routes: [GoRoute(path: '/commitments', builder: (_, __) => const CommitmentsScreen())]),
+      StatefulShellBranch(routes: [GoRoute(path: '/library', builder: (_, state) => LibraryScreen(initialQuery: state.uri.queryParameters['q'] ?? ''))]),
+    ],
   ),
-  GoRoute(
-    path: Routes.homeScreen,
-    redirect: (context, state) {
-      // First launch only: greet her, then never again.
-      if (!WelcomeStore.hasSeenWelcome) return '/${Routes.welcomeScreen}';
-      return null;
-    },
-    builder: (context, state) => const ResourceHomeScreen(), routes: <RouteBase>[
-    GoRoute(path: Routes.saveResourceScreen, builder: (context, state) => const SaveResourceScreen()),
-    GoRoute(path: Routes.voiceMemoryScreen, builder: (context, state) => const VoiceMemoryScreen()),
-    GoRoute(path: Routes.libraryScreen, builder: (context, state) => const LibraryScreen()),
-    GoRoute(path: Routes.commitmentsScreen, builder: (context, state) => const CommitmentsScreen()),
-    GoRoute(path: Routes.focusFlowScreen, builder: (context, state) => const FocusFlowScreen()),
-    GoRoute(path: Routes.spokenReminderSettingsScreen, builder: (context, state) => const SpokenReminderSettingsScreen()),
-    GoRoute(path: 'resource/:id', builder: (context, state) => ResourceDetailScreen(resourceId: state.pathParameters['id']!)),
-    GoRoute(path: Routes.projectMatchScreen, builder: (context, state) => const ProjectMatchScreen()),
-    GoRoute(path: Routes.syncScreen, builder: (context, state) => const SyncScreen()),
-    GoRoute(path: Routes.installAppScreen, builder: (context, state) => const InstallAppScreen()),
-  ]),
+  GoRoute(path: '/save-resource', builder: (_, __) => const SaveResourceScreen()),
+  GoRoute(path: '/voice-memory', builder: (_, __) => const VoiceMemoryScreen()),
+  GoRoute(path: '/spoken-reminders', builder: (_, __) => const SpokenReminderSettingsScreen()),
+  GoRoute(path: '/resource/:id', builder: (_, state) => ResourceDetailScreen(resourceId: state.pathParameters['id']!)),
+  GoRoute(path: '/project-match', builder: (_, __) => const ProjectMatchScreen()),
+  GoRoute(path: '/sync', builder: (_, __) => const SyncScreen()),
+  GoRoute(path: '/install-app', builder: (_, __) => const InstallAppScreen()),
 ];

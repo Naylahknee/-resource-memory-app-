@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:resource_memory/features/widget/todoist_light.dart';
@@ -21,7 +22,7 @@ class InstallAppScreen extends StatelessWidget {
                   children: [
                     Row(children: [
                       IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => context.canPop() ? context.pop() : context.go('/'),
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),

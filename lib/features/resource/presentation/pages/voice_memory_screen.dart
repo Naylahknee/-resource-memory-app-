@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
@@ -11,7 +12,8 @@ import 'package:resource_memory/features/resource/data/voice_capture_service.dar
 import 'package:resource_memory/features/resource/domain/resource.dart';
 
 class VoiceMemoryScreen extends StatefulWidget {
-  const VoiceMemoryScreen({super.key});
+  const VoiceMemoryScreen({super.key, this.returnSavedResource = false});
+  final bool returnSavedResource;
 
   @override
   State<VoiceMemoryScreen> createState() => _VoiceMemoryScreenState();
@@ -148,6 +150,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
       }
 
       if (!mounted) return;
+      if (widget.returnSavedResource) { Navigator.of(context).pop(resource); return; }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -213,7 +216,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                       IconButton(
                         onPressed: _recording || _processing
                             ? null
-                            : () => Navigator.of(context).pop(),
+                            : () => context.canPop() ? context.pop() : context.go('/'),
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),

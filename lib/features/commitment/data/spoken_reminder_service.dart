@@ -82,5 +82,5 @@ class SpokenReminderService {
   }
 
   static Future<void> test() =>
-      speak("This is Resource Memory. I'll speak when something needs your attention.");
+      speak("This is NanyNany. I'll speak when something needs your attention.");
 }
