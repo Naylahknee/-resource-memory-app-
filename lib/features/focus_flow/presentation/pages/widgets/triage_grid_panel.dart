@@ -26,6 +26,7 @@ class TriageGridPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final queue = context.select((FocusFlowCubit c) => c.state.queue);
     final badDay = context.select((FocusFlowCubit c) => c.state.badDay);
+    final pauseSummary = context.select((FocusFlowCubit c) => c.state.pauseSummary);
     final doNow = <FocusTaskView>[];
     final tiny = <FocusTaskView>[];
     final park = <FocusTaskView>[];
@@ -53,6 +54,14 @@ class TriageGridPanel extends StatelessWidget {
           'Tap any task to start it.',
           style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
         ),
+        // Quiet pattern-spotting: only shows once she has logged reasons.
+        if (pauseSummary != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Lately: mostly "$pauseSummary".',
+            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          ),
+        ],
         const SizedBox(height: 12),
         _RoughDayToggle(
           value: badDay,

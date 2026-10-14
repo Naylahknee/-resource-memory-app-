@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
+import '../../domain/entities/focus_task.dart';
 import '../cubit/focus_flow_cubit.dart';
 import 'widgets/brain_dump_panel.dart';
 import 'widgets/focus_session_panel.dart';
@@ -103,16 +104,28 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
                     },
                     onSnooze: (task) =>
                         context.read<FocusFlowCubit>().skip(task.key),
-                    onPickForMe: () {
-                      final picked =
-                          context.read<FocusFlowCubit>().pickForMe();
-                      if (picked) {
-                        setState(() => _tab = 1);
-                      } else {
+                    onPickForMe: () async {
+                      final cubit = context.read<FocusFlowCubit>();
+                      if (cubit.state.queue.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
                                 'Nothing in your queue yet. Dump a few things first, then I will pick one.'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+                      final energy = await _showEnergyPicker(context);
+                      if (energy == null || !context.mounted) return;
+                      final result = cubit.pickForMe(energy: energy);
+                      if (!result.picked) return;
+                      setState(() => _tab = 1);
+                      if (!result.matchedEnergy && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Nothing matches that energy. Picking from everything.'),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -152,6 +165,102 @@ class _SegPill extends StatelessWidget {
             color: selected ? Colors.white : AppColors.textSecondary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Pick for me" energy check: two big chips. Returns the picked energy,
+/// or null if she dismissed the dialog.
+Future<EnergyLevel?> _showEnergyPicker(BuildContext context) {
+  return showDialog<EnergyLevel>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('How is your energy?', style: AppTypography.h4),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'I will pick something that fits.',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          _EnergyChoice(
+            icon: Icons.bolt_outlined,
+            title: 'Lots of energy',
+            subtitle: 'Bigger things welcome.',
+            onTap: () => Navigator.of(dialogContext).pop(EnergyLevel.high),
+          ),
+          const SizedBox(height: 10),
+          _EnergyChoice(
+            icon: Icons.spa_outlined,
+            title: 'Running low',
+            subtitle: 'Keep it small and gentle.',
+            onTap: () => Navigator.of(dialogContext).pop(EnergyLevel.low),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _EnergyChoice extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  const _EnergyChoice({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.kBorderColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: .12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.accent, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTypography.labelLg),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
         ),
       ),
     );

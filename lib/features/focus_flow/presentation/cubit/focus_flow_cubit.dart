@@ -24,12 +24,16 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     final lowCapacity = FocusStore.isLowCapacity;
     final badDay = FocusStore.isBadDay;
     final queue = await _buildQueue(lowCapacity: lowCapacity, badDay: badDay);
+    final trust = FocusStore.trustThisWeek();
     emit(state.copyWith(
       inbox: inbox,
       queue: queue,
       doneToday: FocusStore.completionsToday(),
       lowCapacity: lowCapacity,
       badDay: badDay,
+      trustKept: trust.kept,
+      trustTotal: trust.kept + trust.paused,
+      pauseSummary: FocusStore.mostCommonPauseReason(),
     ));
   }
 
@@ -91,6 +95,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       FocusStore.resolveExternal(key);
     }
     FocusStore.logCompletion(key);
+    FocusStore.logKept();
     final microSteps = Map<String, List<String>>.from(state.microSteps)..remove(key);
     final checked = Map<String, Set<int>>.from(state.microStepsChecked)..remove(key);
     emit(state.copyWith(clearStuckKey: true, clearTinyKey: true, microSteps: microSteps, microStepsChecked: checked));
@@ -119,6 +124,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
 
   /// "Not now": the task leaves the queue and comes back in about
   /// 2 hours with a small "Came back" badge. No judgment.
+  /// A skip is neutral for the trust score: not kept, not broken.
   Future<void> skip(String key) async {
     if (key.startsWith('focus:')) {
       final id = int.tryParse(key.substring(6));
@@ -138,8 +144,16 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     } else {
       FocusStore.bumpExternal(key);
     }
+    FocusStore.logPaused();
     emit(state.copyWith(clearStuckKey: true, clearTinyKey: true));
     await load();
+  }
+
+  /// "Not now" with a pause reason: logs the reason for her own
+  /// pattern-spotting, then snoozes exactly as usual.
+  Future<void> skipWithReason(String key, String reason) async {
+    FocusStore.logPauseReason(_viewFor(key)?.title ?? key, reason);
+    await skip(key);
   }
 
   // ── Low-capacity day mode ─────────────────────────────────────
@@ -161,22 +175,46 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
   // ── "Pick for me" (decision paralysis) ─────────────────────────
 
   /// Randomly brings one queue task to the front so the Focus tab
-  /// shows it next. Returns false when the queue is empty.
-  bool pickForMe() {
-    if (state.queue.isEmpty) return false;
-    final pick = state.queue[Random().nextInt(state.queue.length)];
+  /// shows it next. When [energy] is given, only tasks whose energy
+  /// fits are picked from; if none fit, the whole queue is used and
+  /// [matchedEnergy] comes back false so the UI can say so kindly.
+  ({bool picked, bool matchedEnergy}) pickForMe({EnergyLevel? energy}) {
+    if (state.queue.isEmpty) return (picked: false, matchedEnergy: true);
+    var pool = state.queue;
+    var matched = true;
+    if (energy != null) {
+      final fitting =
+          state.queue.where((v) => _energyFits(v.energy, energy)).toList();
+      if (fitting.isNotEmpty) {
+        pool = fitting;
+      } else {
+        matched = false;
+      }
+    }
+    final pick = pool[Random().nextInt(pool.length)];
     bringToFront(pick.key);
-    return true;
+    return (picked: true, matchedEnergy: matched);
+  }
+
+  /// "Lots of energy" fits high and medium tasks; "Running low" fits
+  /// low and medium. Medium tasks are fair game either way.
+  bool _energyFits(EnergyLevel taskEnergy, EnergyLevel picked) {
+    if (picked == EnergyLevel.high) {
+      return taskEnergy == EnergyLevel.high || taskEnergy == EnergyLevel.medium;
+    }
+    return taskEnergy == EnergyLevel.low || taskEnergy == EnergyLevel.medium;
   }
 
   // ── "Already did it" (retroactive win logging) ──────────────────
 
   /// Logs something the user already did: it lands directly as a
   /// completed task, timestamped now, so they get the check-off.
+  /// Counts as a kept commitment for the trust score.
   Future<void> logWin(String title) async {
     final task = FocusStore.add(title);
     FocusStore.update(task.copyWith(triaged: true, completedAt: DateTime.now()));
     FocusStore.logCompletion('focus:${task.id}');
+    FocusStore.logKept();
     await load();
   }
 
@@ -256,6 +294,13 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
   }
 
   void closeStuck() => emit(state.copyWith(clearStuckKey: true));
+
+  /// "I'm stuck" with a pause reason: logs the reason for her own
+  /// pattern-spotting, then opens the breakdown as usual.
+  void openStuckWithReason(String key, String reason) {
+    FocusStore.logPauseReason(_viewFor(key)?.title ?? key, reason);
+    openStuck(key);
+  }
 
   Future<void> toggleMicroStep(String key, int index) async {
     final checked = Map<String, Set<int>>.from(state.microStepsChecked);

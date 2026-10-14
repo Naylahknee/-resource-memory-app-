@@ -20,6 +20,9 @@ class FocusStore {
   static const _externalSkipsKey = 'externalSkips';
   static const _lowCapacityKey = 'lowCapacity';
   static const _badDayKey = 'badDay';
+  static const _keptKey = 'keptLog';
+  static const _pausedKey = 'pausedLog';
+  static const _pauseReasonsKey = 'pauseReasons';
 
   static Future<void> initialize() async {
     if (!Hive.isAdapterRegistered(3)) {
@@ -99,6 +102,87 @@ class FocusStore {
       }
     }
     return count;
+  }
+
+  // ── Self-trust score (gentle): kept vs paused, current week ────
+  //
+  // DONE on a focused task = a kept commitment. "Not now" = neutral:
+  // it does not count as kept and it is not a broken promise either.
+  // The week resets on Monday.
+
+  /// Monday 00:00 of the current week, local time.
+  static DateTime _weekStart() {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    return DateTime(monday.year, monday.month, monday.day);
+  }
+
+  static void _appendTimestamp(String key, {int cap = 500}) {
+    final list = List<String>.from(
+      (_meta.get(key, defaultValue: <String>[]) as List?) ?? <String>[],
+    );
+    list.add(DateTime.now().toIso8601String());
+    if (list.length > cap) list.removeRange(0, list.length - cap);
+    _meta.put(key, list);
+  }
+
+  /// A kept commitment: DONE tapped on a focused task.
+  static void logKept() => _appendTimestamp(_keptKey);
+
+  /// "Not now" tapped. Neutral, just for the denominator.
+  static void logPaused() => _appendTimestamp(_pausedKey);
+
+  static ({int kept, int paused}) trustThisWeek() {
+    final start = _weekStart();
+    var kept = 0;
+    var paused = 0;
+    for (final key in [_keptKey, _pausedKey]) {
+      final list = List<String>.from(
+        (_meta.get(key, defaultValue: <String>[]) as List?) ?? <String>[],
+      );
+      for (final entry in list) {
+        final dt = DateTime.tryParse(entry);
+        if (dt != null && !dt.isBefore(start)) {
+          if (key == _keptKey) {
+            kept++;
+          } else {
+            paused++;
+          }
+        }
+      }
+    }
+    return (kept: kept, paused: paused);
+  }
+
+  // ── Pause reasons (private pattern-spotting) ──────────────────
+
+  /// Stored as "isoTimestamp|reason|taskTitle", capped at 100 entries.
+  static void logPauseReason(String taskTitle, String reason) {
+    final list = List<String>.from(
+      (_meta.get(_pauseReasonsKey, defaultValue: <String>[]) as List?) ?? <String>[],
+    );
+    list.add('${DateTime.now().toIso8601String()}|$reason|$taskTitle');
+    if (list.length > 100) list.removeRange(0, list.length - 100);
+    _meta.put(_pauseReasonsKey, list);
+  }
+
+  /// Most common pause reason in the last 30 days, or null when none yet.
+  static String? mostCommonPauseReason() {
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    final list = List<String>.from(
+      (_meta.get(_pauseReasonsKey, defaultValue: <String>[]) as List?) ?? <String>[],
+    );
+    final counts = <String, int>{};
+    for (final entry in list) {
+      final parts = entry.split('|');
+      if (parts.length < 2) continue;
+      final dt = DateTime.tryParse(parts[0]);
+      if (dt == null || dt.isBefore(cutoff)) continue;
+      final reason = parts[1];
+      counts[reason] = (counts[reason] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return null;
+    return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
 
   // ── External items (todos / commitments): focus-layer only ─────

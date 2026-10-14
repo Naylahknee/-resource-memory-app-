@@ -37,6 +37,16 @@ class FocusFlowState extends Equatable {
   /// before revealing the next task. Cleared by the timer or Skip.
   final bool showBreather;
 
+  /// Gentle self-trust score: kept commitments this week (resets Monday).
+  final int trustKept;
+
+  /// Focused sessions resolved this week (kept + "not now"). "Not now"
+  /// is neutral, it just fills out the denominator.
+  final int trustTotal;
+
+  /// Most common recent pause reason, for the quiet "Why I pause" line.
+  final String? pauseSummary;
+
   const FocusFlowState({
     this.inbox = const [],
     this.queue = const [],
@@ -49,6 +59,9 @@ class FocusFlowState extends Equatable {
     this.lowCapacity = false,
     this.badDay = false,
     this.showBreather = false,
+    this.trustKept = 0,
+    this.trustTotal = 0,
+    this.pauseSummary,
   });
 
   FocusTaskView? get stuckTask {
@@ -83,6 +96,9 @@ class FocusFlowState extends Equatable {
     bool? lowCapacity,
     bool? badDay,
     bool? showBreather,
+    int? trustKept,
+    int? trustTotal,
+    String? pauseSummary,
   }) {
     return FocusFlowState(
       inbox: inbox ?? this.inbox,
@@ -96,6 +112,9 @@ class FocusFlowState extends Equatable {
       lowCapacity: lowCapacity ?? this.lowCapacity,
       badDay: badDay ?? this.badDay,
       showBreather: showBreather ?? this.showBreather,
+      trustKept: trustKept ?? this.trustKept,
+      trustTotal: trustTotal ?? this.trustTotal,
+      pauseSummary: pauseSummary ?? this.pauseSummary,
     );
   }
 
@@ -112,5 +131,8 @@ class FocusFlowState extends Equatable {
         lowCapacity,
         badDay,
         showBreather,
+        trustKept,
+        trustTotal,
+        pauseSummary,
       ];
 }

@@ -136,7 +136,15 @@ class FocusSessionPanel extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => cubit.skip(view.key),
+                          onPressed: () async {
+                            final reason = await _showPauseReasonDialog(context);
+                            if (reason == null || !context.mounted) return;
+                            if (reason.isEmpty) {
+                              cubit.skip(view.key);
+                            } else {
+                              cubit.skipWithReason(view.key, reason);
+                            }
+                          },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textSecondary,
                             side: BorderSide(color: AppColors.kBorderColor),
@@ -149,7 +157,19 @@ class FocusSessionPanel extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => isStuck ? cubit.closeStuck() : cubit.openStuck(view.key),
+                          onPressed: () async {
+                            if (isStuck) {
+                              cubit.closeStuck();
+                              return;
+                            }
+                            final reason = await _showPauseReasonDialog(context);
+                            if (reason == null || !context.mounted) return;
+                            if (reason.isEmpty) {
+                              cubit.openStuck(view.key);
+                            } else {
+                              cubit.openStuckWithReason(view.key, reason);
+                            }
+                          },
                           icon: Icon(isStuck ? Icons.expand_less : Icons.psychology_outlined),
                           label: Text(isStuck ? 'Hide steps' : "I'm stuck"),
                           style: OutlinedButton.styleFrom(
@@ -213,6 +233,17 @@ class FocusSessionPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
+            // Gentle self-trust score: tiny, ignorable, never red, never shaming.
+            if (state.trustKept > 0) ...[
+              Center(
+                child: Text(
+                  'Kept ${state.trustKept} of ${state.trustTotal} this week. Every kept one counts.',
+                  style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Center(
               child: Text(
                 lowCapacity
@@ -770,4 +801,63 @@ class _BreatherScreenState extends State<_BreatherScreen> {
       ),
     );
   }
+}
+
+/// Pause reasons: quick, private pattern-spotting. Stored locally only,
+/// shown back as one gentle line on the Sort tab.
+const _pauseReasons = [
+  'Need a moment',
+  'Too big',
+  'Wrong energy',
+  'Waiting on someone',
+];
+
+/// Quick reason chips before a "Not now" or "I'm stuck" dismisses.
+///
+/// Returns the picked reason, '' to go ahead without logging one,
+/// or null if she dismissed the dialog (then nothing happens).
+Future<String?> _showPauseReasonDialog(BuildContext context) {
+  return showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('What is going on?', style: AppTypography.h4),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Just for you. No judgment, and this stays private.',
+            style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final reason in _pauseReasons)
+                InkWell(
+                  onTap: () => Navigator.of(dialogContext).pop(reason),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.kBorderColor),
+                    ),
+                    child: Text(reason, style: AppTypography.labelMd),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(''),
+          child: const Text('Just skip'),
+        ),
+      ],
+    ),
+  );
 }
