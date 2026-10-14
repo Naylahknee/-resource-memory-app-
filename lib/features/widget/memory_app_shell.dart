@@ -8,7 +8,10 @@ class MemoryAppShell extends StatelessWidget {
   final StatefulNavigationShell navigation;
   static const labels = ['Now', 'Focus', 'Reminders', 'Memory'];
   static const icons = [Icons.home_outlined, Icons.center_focus_strong_outlined, Icons.notifications_none, Icons.bookmarks_outlined];
-  void _select(int index) => navigation.goBranch(index, initialLocation: index == navigation.currentIndex);
+  void _select(int index) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    navigation.goBranch(index, initialLocation: index == navigation.currentIndex);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +45,7 @@ class MemoryAppShell extends StatelessWidget {
                         selectedIndex: navigation.currentIndex, onDestinationSelected: _select,
                         indicatorColor: TodoistLight.verbTint,
                         selectedIconTheme: const IconThemeData(color: TodoistLight.verb),
-                        selectedLabelTextStyle: const TextStyle(color: TodoistLight.verb, fontWeight: FontWeight.w600),
+                        selectedLabelTextStyle: Theme.of(context).textTheme.labelLarge?.copyWith(color: TodoistLight.verb, fontWeight: FontWeight.w600),
                         destinations: List.generate(4, (i) => NavigationRailDestination(
                           icon: Icon(icons[i]), label: Text(labels[i]),
                         )),
