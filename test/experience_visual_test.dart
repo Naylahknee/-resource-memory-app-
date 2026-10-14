@@ -17,10 +17,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
   testWidgets('render the complete guided experience for visual review', (tester) async {
-    final temp = await Directory.systemTemp.createTemp('nanynany-visual-');
-    Hive.init(temp.path);
-    await ResourceStore.initialize(); await WelcomeStore.initialize();
-    await CommitmentStore.initialize(); await FocusStore.initialize();
+    final temp = await tester.runAsync(() async {
+      final directory = await Directory.systemTemp.createTemp('nanynany-visual-');
+      Hive.init(directory.path);
+      await ResourceStore.initialize(); await WelcomeStore.initialize();
+      await CommitmentStore.initialize(); await FocusStore.initialize();
+      return directory;
+    });
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize); addTearDown(tester.view.resetDevicePixelRatio);
@@ -44,7 +47,12 @@ void main() {
     }
     Future<void> tap(String label) async {
       final target = find.text(label).last;
-      await tester.ensureVisible(target); await tester.tap(target); await tester.pumpAndSettle();
+      await tester.ensureVisible(target); await tester.tap(target);
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
     }
     await picture('01-welcome');
     await tap('Get started'); await picture('02-save');
@@ -62,6 +70,7 @@ void main() {
     tester.view.physicalSize = const Size(1280, 900);
     await tester.pumpAndSettle(); await picture('10-desktop-home');
     await tester.pumpWidget(const SizedBox()); await tester.pumpAndSettle();
-    router.dispose(); await Hive.close(); await temp.delete(recursive: true);
+    router.dispose();
+    await tester.runAsync(() async { await Hive.close(); await temp!.delete(recursive: true); });
   });
 }

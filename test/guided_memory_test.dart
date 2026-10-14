@@ -37,7 +37,13 @@ void main() {
   }
   Future<void> tap(WidgetTester tester, String label) async {
     final finder = find.text(label).last;
-    await tester.ensureVisible(finder); await tester.tap(finder); await tester.pumpAndSettle();
+    await tester.ensureVisible(finder); await tester.tap(finder);
+    // Hive uses real file I/O, outside the widget test's fake clock.
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
   }
   Future<void> unmount(WidgetTester tester) async { await tester.pumpWidget(const SizedBox()); await tester.pumpAndSettle(); }
 
@@ -77,7 +83,7 @@ void main() {
     await unmount(tester);
   });
   testWidgets('persistent tabs retain the Memory search', (tester) async {
-    await WelcomeStore.markSeen(); await mount(tester, initial: '/library');
+    await tester.runAsync(WelcomeStore.markSeen); await mount(tester, initial: '/library');
     await tester.enterText(find.byType(TextField), 'community funding'); await tester.pumpAndSettle();
     final nav = find.byType(NavigationBar);
     await tester.tap(find.descendant(of: nav, matching: find.text('Reminders'))); await tester.pumpAndSettle();
@@ -88,7 +94,7 @@ void main() {
     await unmount(tester);
   });
   testWidgets('capture keeps an invalid link visible with an inline error', (tester) async {
-    await WelcomeStore.markSeen(); await mount(tester);
+    await tester.runAsync(WelcomeStore.markSeen); await mount(tester);
     await tap(tester, 'Save something');
     final input = find.byType(TextField).last;
     await tester.enterText(input, 'not a link');
@@ -99,7 +105,7 @@ void main() {
     await unmount(tester);
   });
   testWidgets('small Memory view can scroll with large text and the keyboard', (tester) async {
-    await WelcomeStore.markSeen(); await mount(tester, initial: '/library', scale: 1.8);
+    await tester.runAsync(WelcomeStore.markSeen); await mount(tester, initial: '/library', scale: 1.8);
     tester.view.physicalSize = const Size(320, 568);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
