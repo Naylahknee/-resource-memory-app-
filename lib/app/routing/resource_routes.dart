@@ -12,9 +12,22 @@ import 'package:resource_memory/features/resource/presentation/pages/resource_ho
 import 'package:resource_memory/features/resource/presentation/pages/save_resource_screen.dart';
 import 'package:resource_memory/features/resource/presentation/pages/sync_screen.dart';
 import 'package:resource_memory/features/resource/presentation/pages/voice_memory_screen.dart';
+import 'package:resource_memory/features/resource/presentation/pages/welcome_screen.dart';
+import 'package:resource_memory/features/resource/data/welcome_store.dart';
 
 final List<RouteBase> resourceRoutes = <RouteBase>[
-  GoRoute(path: Routes.homeScreen, builder: (context, state) => const ResourceHomeScreen(), routes: <RouteBase>[
+  GoRoute(
+    path: '/${Routes.welcomeScreen}',
+    builder: (context, state) => const WelcomeScreen(),
+  ),
+  GoRoute(
+    path: Routes.homeScreen,
+    redirect: (context, state) {
+      // First launch only: greet her, then never again.
+      if (!WelcomeStore.hasSeenWelcome) return '/${Routes.welcomeScreen}';
+      return null;
+    },
+    builder: (context, state) => const ResourceHomeScreen(), routes: <RouteBase>[
     GoRoute(path: Routes.saveResourceScreen, builder: (context, state) => const SaveResourceScreen()),
     GoRoute(path: Routes.voiceMemoryScreen, builder: (context, state) => const VoiceMemoryScreen()),
     GoRoute(path: Routes.libraryScreen, builder: (context, state) => const LibraryScreen()),

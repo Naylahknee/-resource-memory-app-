@@ -11,6 +11,7 @@ import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
 import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
 import 'package:resource_memory/features/resource/data/incoming_share_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
+import 'package:resource_memory/features/resource/data/welcome_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,7 @@ Future<void> main() async {
   await ResourceStore.initialize();
   await CommitmentStore.initialize();
   await FocusStore.initialize();
+  await WelcomeStore.initialize();
   if (CloudSyncService.isSignedIn) {
     await ResourceStore.syncNow();
   }

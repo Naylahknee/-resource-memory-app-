@@ -9,4 +9,5 @@ class Routes {
   static const spokenReminderSettingsScreen = 'spoken-reminders';
   static const syncScreen = 'sync';
   static const installAppScreen = 'install-app';
+  static const welcomeScreen = 'welcome';
 }
