@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:resource_memory/app/routing/app_route.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/commitment/data/commitment_store.dart';
 import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
@@ -39,10 +39,11 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
       e.status != CommitmentStatus.done &&
       e.status != CommitmentStatus.dismissed).toList();
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return TodoistLightScope(
+      child: Scaffold(
+      backgroundColor: TodoistLight.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: TodoistLight.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: const Text('Remember'),
@@ -62,7 +63,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
             const SizedBox(height: 6),
             Text(
               'Things that need your attention stay here until you handle them.',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
             ),
             const SizedBox(height: 30),
             if (possible.isNotEmpty) ...[
@@ -108,6 +109,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -119,7 +121,7 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: AppTypography.labelLg.copyWith(color: AppColors.textSecondary),
+    style: AppTypography.labelLg.copyWith(color: TodoistLight.secondary),
   );
 }
 
@@ -132,7 +134,7 @@ class _CommitmentList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(14),
       ),
       clipBehavior: Clip.antiAlias,
@@ -141,7 +143,7 @@ class _CommitmentList extends StatelessWidget {
           for (var i = 0; i < items.length; i++) ...[
             _CommitmentRow(item: items[i], trailing: trailingBuilder(items[i])),
             if (i < items.length - 1)
-              Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
+              Divider(height: 1, indent: 16, color: TodoistLight.hairline),
           ],
         ],
       ),
@@ -169,7 +171,7 @@ class _CommitmentRow extends StatelessWidget {
             width: 64,
             child: Text(
               time,
-              style: AppTypography.labelLg.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.labelLg.copyWith(color: TodoistLight.secondary),
             ),
           ),
           const SizedBox(width: 10),
@@ -177,13 +179,13 @@ class _CommitmentRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.title, style: AppTypography.bodyMd.copyWith(color: AppColors.textPrimary)),
+                Text(item.title, style: AppTypography.bodyMd.copyWith(color: TodoistLight.ink)),
                 const SizedBox(height: 3),
                 Text(
                   item.detail == null ? date : '$date · ${item.detail}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                  style: AppTypography.bodyMd.copyWith(color: TodoistLight.muted),
                 ),
               ],
             ),
@@ -203,12 +205,12 @@ class _EmptyState extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
     decoration: BoxDecoration(
-      color: AppColors.surface,
+      color: TodoistLight.surface,
       borderRadius: BorderRadius.circular(14),
     ),
     child: Text(
       'Nothing needs your attention right now.',
-      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
     ),
   );
 }

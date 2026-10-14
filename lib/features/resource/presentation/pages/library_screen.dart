@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:resource_memory/app/routing/app_route.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/resource/data/resource_link_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
 import 'package:resource_memory/features/resource/domain/resource.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -21,7 +20,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override void dispose() { _searchController.dispose(); super.dispose(); }
 
   @override Widget build(BuildContext context) {
-    return Scaffold(body: AppGradient(child: SafeArea(child: Padding(
+    return TodoistLightScope(child: Scaffold(body: SafeArea(child: Padding(
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -33,15 +32,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
         const SizedBox(height: 18),
         Text('Everything you asked NanyNany to remember.', style: AppTypography.h2),
         const SizedBox(height: 6),
-        Text('Links, screenshots, voice memories, articles, tools and tab sessions stay together here.', style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+        Text('Links, screenshots, voice memories, articles, tools and tab sessions stay together here.', style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
         const SizedBox(height: 16),
         TextField(
           controller: _searchController,
           onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
           decoration: InputDecoration(
-            hintText: 'What are you trying to find?', prefixIcon: const Icon(Icons.search), filled: true, fillColor: AppColors.surface,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: AppColors.kBorderColor)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: AppColors.kBorderColor)),
+            hintText: 'What are you trying to find?', prefixIcon: const Icon(Icons.search), filled: true, fillColor: TodoistLight.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: TodoistLight.hairline)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: TodoistLight.hairline)),
           ),
         ),
         const SizedBox(height: 14),
@@ -60,7 +59,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           builder: (context, _, __) {
             final all = ResourceStore.getAll()..sort((a, b) => b.savedAt.compareTo(a.savedAt));
             final resources = all.where((r) => (_filter == null || r.type == _filter) && (_query.isEmpty || r.searchableText.contains(_query))).toList();
-            if (resources.isEmpty) return Center(child: Text(all.isEmpty ? 'Nothing saved yet.\nSave something once and it will live here.' : 'Nothing matches this view.', textAlign: TextAlign.center, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)));
+            if (resources.isEmpty) return Center(child: Text(all.isEmpty ? 'Nothing saved yet.\nSave something once and it will live here.' : 'Nothing matches this view.', textAlign: TextAlign.center, style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)));
             return ListView.separated(itemCount: resources.length, separatorBuilder: (_, __) => const SizedBox(height: 12), itemBuilder: (context, index) => _ResourceCard(resource: resources[index]));
           },
         )),
@@ -94,9 +93,9 @@ class _ResourceCard extends StatelessWidget {
     final tabCount = resource.session?['tabCount'];
     return InkWell(
       borderRadius: BorderRadius.circular(22), onTap: () => _openMemory(context),
-      child: Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: AppColors.kBorderColor)),
+      child: Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: TodoistLight.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: TodoistLight.hairline)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          CircleAvatar(backgroundColor: AppColors.accentMuted, child: Icon(_iconFor(resource.type), color: AppColors.accent)),
+          CircleAvatar(backgroundColor: TodoistLight.verbMuted, child: Icon(_iconFor(resource.type), color: TodoistLight.verb)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -106,12 +105,12 @@ class _ResourceCard extends StatelessWidget {
               PopupMenuButton<String>(onSelected: (value) { if (value == 'delete') _delete(context); if (value == 'open') _openMemory(context); }, itemBuilder: (_) => const [PopupMenuItem(value: 'open', child: Text('Open memory')), PopupMenuItem(value: 'delete', child: Text('Delete'))]),
             ]),
             const SizedBox(height: 3),
-            Text(isSession ? '${tabCount ?? 'Saved'} tabs · Tab session' : _labelFor(resource), style: AppTypography.labelMd.copyWith(color: AppColors.accent)),
+            Text(isSession ? '${tabCount ?? 'Saved'} tabs · Tab session' : _labelFor(resource), style: AppTypography.labelMd.copyWith(color: TodoistLight.verb)),
             const SizedBox(height: 7),
-            Text(resource.summary, maxLines: 3, overflow: TextOverflow.ellipsis, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
-            if (isSession && resource.topics.isNotEmpty) ...[const SizedBox(height: 10), Text(resource.topics.take(3).join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary))],
+            Text(resource.summary, maxLines: 3, overflow: TextOverflow.ellipsis, style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
+            if (isSession && resource.topics.isNotEmpty) ...[const SizedBox(height: 10), Text(resource.topics.take(3).join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary))],
             const SizedBox(height: 8),
-            Text(_savedLabel(resource.savedAt), style: AppTypography.bodySm.copyWith(color: AppColors.textMuted)),
+            Text(_savedLabel(resource.savedAt), style: AppTypography.bodySm.copyWith(color: TodoistLight.muted)),
           ])),
         ]),
       ),

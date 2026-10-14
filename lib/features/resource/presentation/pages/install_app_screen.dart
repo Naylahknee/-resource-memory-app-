@@ -1,17 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class InstallAppScreen extends StatelessWidget {
   const InstallAppScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AppGradient(
-        child: SafeArea(
+    return TodoistLightScope(
+      child: Scaffold(
+      body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Center(
@@ -35,7 +34,7 @@ class InstallAppScreen extends StatelessWidget {
                       kIsWeb
                           ? 'The web version is installable. It opens in its own app window and uses the same synced library as desktop.'
                           : 'You are already running the native app. Sign in under Sync Devices to use the same library everywhere.',
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                     const SizedBox(height: 24),
                     const _InstallCard(
@@ -98,17 +97,17 @@ class _InstallCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.kBorderColor),
+        border: Border.all(color: TodoistLight.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
             CircleAvatar(
-              backgroundColor: AppColors.accentMuted,
-              child: Icon(icon, color: AppColors.accent),
+              backgroundColor: TodoistLight.verbMuted,
+              child: Icon(icon, color: TodoistLight.verb),
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(title, style: AppTypography.h3)),
@@ -127,7 +126,7 @@ class _InstallCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       steps[i],
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                   ),
                 ],

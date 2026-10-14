@@ -5,14 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
 import 'package:resource_memory/features/resource/data/resource_enrichment_service.dart';
 import 'package:resource_memory/features/resource/data/resource_link_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
 import 'package:resource_memory/features/resource/domain/resource.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class SaveResourceScreen extends StatefulWidget {
   const SaveResourceScreen({super.key});
@@ -293,9 +292,9 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
       },
       child: Focus(
         autofocus: true,
-        child: Scaffold(
-          body: AppGradient(
-            child: SafeArea(
+        child: TodoistLightScope(
+          child: Scaffold(
+          body: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isDesktop = constraints.maxWidth >= 800;
@@ -323,7 +322,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                             const SizedBox(height: 8),
                             Text(
                               'Threads, YouTube, GitHub, websites, tutorials — anything Future You should remember.',
-                              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                              style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                             ),
                             const SizedBox(height: 22),
                             TextField(
@@ -334,15 +333,15 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                               decoration: InputDecoration(
                                 hintText: 'https://...',
                                 filled: true,
-                                fillColor: AppColors.surface,
+                                fillColor: TodoistLight.surface,
                                 prefixIcon: const Icon(Icons.link),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(18),
-                                  borderSide: BorderSide(color: AppColors.kBorderColor),
+                                  borderSide: BorderSide(color: TodoistLight.hairline),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(18),
-                                  borderSide: BorderSide(color: AppColors.kBorderColor),
+                                  borderSide: BorderSide(color: TodoistLight.hairline),
                                 ),
                               ),
                             ),
@@ -363,12 +362,12 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                             ),
                             const SizedBox(height: 28),
                             Row(children: [
-                              Expanded(child: Divider(color: AppColors.kBorderColor)),
+                              Expanded(child: Divider(color: TodoistLight.hairline)),
                               const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 12),
                                 child: Text('OR'),
                               ),
-                              Expanded(child: Divider(color: AppColors.kBorderColor)),
+                              Expanded(child: Divider(color: TodoistLight.hairline)),
                             ]),
                             const SizedBox(height: 28),
                             DropTarget(
@@ -386,16 +385,16 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                                     vertical: isDesktop ? 40 : 22,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: _dragging ? AppColors.accentMuted : AppColors.surface,
+                                    color: _dragging ? TodoistLight.verbMuted : TodoistLight.surface,
                                     borderRadius: BorderRadius.circular(24),
                                     border: Border.all(
-                                      color: _dragging ? AppColors.accent : AppColors.kBorderColor,
+                                      color: _dragging ? TodoistLight.verb : TodoistLight.hairline,
                                       width: _dragging ? 2 : 1,
                                     ),
                                   ),
                                   child: Column(children: [
                                     CircleAvatar(
-                                      backgroundColor: AppColors.accentMuted,
+                                      backgroundColor: TodoistLight.verbMuted,
                                       child: _understandingImage
                                           ? const Padding(
                                               padding: EdgeInsets.all(10),
@@ -405,7 +404,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                                               _dragging
                                                   ? Icons.file_download_outlined
                                                   : Icons.content_paste_go_outlined,
-                                              color: AppColors.accent,
+                                              color: TodoistLight.verb,
                                             ),
                                     ),
                                     const SizedBox(height: 12),
@@ -427,7 +426,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                                               ? 'Drop files here, click to choose an image, or copy an image and press Ctrl+V / Cmd+V.'
                                               : 'Choose an image or use Paste image to capture your clipboard.'),
                                       textAlign: TextAlign.center,
-                                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                                      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                                     ),
                                     const SizedBox(height: 16),
                                     OutlinedButton.icon(
@@ -450,7 +449,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                                         'Connect Sync Devices to automatically understand screenshots.',
                                         textAlign: TextAlign.center,
                                         style: AppTypography.bodySm.copyWith(
-                                          color: AppColors.textMuted,
+                                          color: TodoistLight.muted,
                                         ),
                                       ),
                                     ],
@@ -466,8 +465,8 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                 },
               ),
             ),
-          ),
         ),
+      ),
       ),
     );
   }

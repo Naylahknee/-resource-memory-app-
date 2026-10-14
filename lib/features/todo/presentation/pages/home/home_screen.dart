@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:resource_memory/app/extension/context_extension.dart';
 import 'package:resource_memory/app/extension/widget_padding_extension.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/shared/cubit/tab_cubit.dart';
 
@@ -11,7 +11,6 @@ import 'package:resource_memory/features/todo/presentation/pages/add/create_task
 import 'package:resource_memory/features/note/presentation/pages/addNote/widget/note_widget.dart';
 import 'package:resource_memory/features/todo/presentation/pages/home/widget/task_widget.dart';
 import 'package:resource_memory/features/todo/presentation/pages/home/widget/user_info_widget.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,7 +62,7 @@ class HomeScreenState extends State<HomeScreen>
             child: const Icon(Icons.add),
           ),
         ),
-        body: AppGradient(
+        body: TodoistLightScope(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -88,22 +87,22 @@ Widget _buildTabBar(TabController controller) {
   return Container(
     padding: const EdgeInsets.all(4),
     decoration: BoxDecoration(
-      color: AppColors.kBorderColor,
+      color: TodoistLight.surfaceGray,
       borderRadius: BorderRadius.circular(30),
     ),
     child: IntrinsicWidth(
       child: TabBar(
         controller: controller,
         indicator: BoxDecoration(
-          color: AppColors.kTabGreyColor,
+          color: TodoistLight.surface,
           borderRadius: BorderRadius.circular(30),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         labelStyle: AppTypography.labelLg.copyWith(fontSize: 13.5),
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white38,
+        labelColor: TodoistLight.ink,
+        unselectedLabelColor: TodoistLight.secondary,
         tabs: [
           Tab(text: 'TASKS').paddingSymmetric(horizontal: 10),
           Tab(text: 'NOTES'),

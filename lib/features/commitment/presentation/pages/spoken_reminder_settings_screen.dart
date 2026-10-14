@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/commitment/data/spoken_reminder_service.dart';
 import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
@@ -44,10 +44,11 @@ class _SpokenReminderSettingsScreenState extends State<SpokenReminderSettingsScr
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return TodoistLightScope(
+      child: Scaffold(
+      backgroundColor: TodoistLight.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: TodoistLight.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: const Text('Spoken reminders'),
@@ -61,7 +62,7 @@ class _SpokenReminderSettingsScreenState extends State<SpokenReminderSettingsScr
                 const SizedBox(height: 6),
                 Text(
                   'Resource Memory can say important reminders out loud instead of relying only on a notification.',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                  style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                 ),
                 const SizedBox(height: 24),
                 _SettingsGroup(children: [
@@ -70,14 +71,14 @@ class _SpokenReminderSettingsScreenState extends State<SpokenReminderSettingsScr
                     value: enabled,
                     onChanged: (value) async { setState(() => enabled = value); if (value) await PhoneBridge.requestNotificationPermission(); await _save(); },
                   ),
-                  Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
+                  Divider(height: 1, indent: 16, color: TodoistLight.hairline),
                   SwitchListTile(
                     title: const Text('Natural voice'),
                     subtitle: const Text('Uses enhanced voice when available; device voice is the fallback.'),
                     value: natural,
                     onChanged: enabled ? (value) { setState(() => natural = value); _save(); } : null,
                   ),
-                  Divider(height: 1, indent: 16, color: AppColors.kBorderColor),
+                  Divider(height: 1, indent: 16, color: TodoistLight.hairline),
                   SwitchListTile(
                     title: const Text('Repeat until acknowledged'),
                     value: repeat,
@@ -95,10 +96,11 @@ class _SpokenReminderSettingsScreenState extends State<SpokenReminderSettingsScr
                 const SizedBox(height: 14),
                 Text(
                   'Important reminders still use normal system notifications as a backup.',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                  style: AppTypography.bodyMd.copyWith(color: TodoistLight.muted),
                 ),
               ],
             ),
+      ),
     );
   }
 }
@@ -110,7 +112,7 @@ class _SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: AppColors.surface,
+      color: TodoistLight.surface,
       borderRadius: BorderRadius.circular(14),
     ),
     clipBehavior: Clip.antiAlias,

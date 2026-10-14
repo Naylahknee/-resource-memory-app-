@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../../app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import '../../../../../app/theme/app_typography.dart';
 import '../../../domain/entities/focus_task.dart';
 import '../../cubit/focus_flow_cubit.dart';
@@ -52,14 +52,14 @@ class TriageGridPanel extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'Tap any task to start it.',
-          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
         ),
         // Quiet pattern-spotting: only shows once she has logged reasons.
         if (pauseSummary != null) ...[
           const SizedBox(height: 4),
           Text(
             'Lately: mostly "$pauseSummary".',
-            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            style: AppTypography.caption.copyWith(color: TodoistLight.muted),
           ),
         ],
         const SizedBox(height: 12),
@@ -71,7 +71,7 @@ class TriageGridPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             'Rough day on. Only your top task is showing. The rest can wait.',
-            style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
           ),
         ],
         const SizedBox(height: 12),
@@ -82,8 +82,8 @@ class TriageGridPanel extends StatelessWidget {
             icon: const Icon(Icons.casino_outlined),
             label: const Text('Pick for me'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textPrimary,
-              side: BorderSide(color: AppColors.kBorderColor),
+              foregroundColor: TodoistLight.ink,
+              side: BorderSide(color: TodoistLight.hairline),
               padding: const EdgeInsets.symmetric(vertical: 14),
               textStyle: AppTypography.labelLg,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -93,21 +93,21 @@ class TriageGridPanel extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           "Can't decide? I'll choose one.",
-          style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         _QuadrantCard(
           title: 'Do it now',
           hint: 'Urgent, and you have the energy. Go.',
-          color: AppColors.accent,
+          color: TodoistLight.verb,
           tasks: doNow,
           onStart: onStart,
         ),
         _QuadrantCard(
           title: 'Tiny version',
           hint: 'Urgent but low energy. Shrink it to 2 minutes.',
-          color: AppColors.piesPink,
+          color: TodoistLight.warm,
           tasks: tiny,
           onStart: onStart,
           secondaryLabel: 'Tiny it',
@@ -116,14 +116,14 @@ class TriageGridPanel extends StatelessWidget {
         _QuadrantCard(
           title: 'Park it',
           hint: 'Not urgent, energy to spare. Pick one when ready.',
-          color: AppColors.textSecondary,
+          color: TodoistLight.secondary,
           tasks: park,
           onStart: onStart,
         ),
         _QuadrantCard(
           title: 'Not now',
           hint: 'Not urgent, low energy. Snooze one and it comes back later.',
-          color: AppColors.textMuted,
+          color: TodoistLight.muted,
           tasks: notNow,
           onStart: onStart,
           secondaryLabel: 'Snooze 2h',
@@ -146,10 +146,10 @@ class _RoughDayToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: value ? AppColors.accent.withValues(alpha: .10) : AppColors.surfaceVariant,
+        color: value ? TodoistLight.verb.withValues(alpha: .10) : TodoistLight.surfaceVariant,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: value ? AppColors.accent.withValues(alpha: .45) : AppColors.kBorderColor,
+          color: value ? TodoistLight.verb.withValues(alpha: .45) : TodoistLight.hairline,
         ),
       ),
       child: Row(
@@ -161,7 +161,7 @@ class _RoughDayToggle extends StatelessWidget {
                 Text('Rough day', style: AppTypography.labelLg),
                 Text(
                   'Only one task shows. The rest can wait.',
-                  style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                  style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
                 ),
               ],
             ),
@@ -169,7 +169,7 @@ class _RoughDayToggle extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: AppColors.accent,
+            activeThumbColor: TodoistLight.verb,
           ),
         ],
       ),
@@ -201,7 +201,7 @@ class _QuadrantCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: color.withValues(alpha: .45)),
       ),
@@ -220,20 +220,20 @@ class _QuadrantCard extends StatelessWidget {
               const Spacer(),
               Text(
                 '${tasks.length}',
-                style: AppTypography.labelMd.copyWith(color: AppColors.textSecondary),
+                style: AppTypography.labelMd.copyWith(color: TodoistLight.secondary),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             hint,
-            style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
           ),
           if (tasks.isEmpty) ...[
             const SizedBox(height: 10),
             Text(
               'Nothing here.',
-              style: AppTypography.bodySm.copyWith(color: AppColors.textMuted),
+              style: AppTypography.bodySm.copyWith(color: TodoistLight.muted),
             ),
           ] else ...[
             const SizedBox(height: 10),
@@ -275,7 +275,7 @@ class _TaskRow extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: TodoistLight.surfaceVariant,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -288,7 +288,7 @@ class _TaskRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${task.urgency.name.toUpperCase()} · ${task.energy.name.toUpperCase()} ENERGY',
-                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                    style: AppTypography.caption.copyWith(color: TodoistLight.muted),
                   ),
                 ],
               ),
@@ -309,7 +309,7 @@ class _TaskRow extends StatelessWidget {
                   ),
                 ),
               ),
-            const Icon(Icons.play_arrow_rounded, color: AppColors.textSecondary),
+            const Icon(Icons.play_arrow_rounded, color: TodoistLight.secondary),
           ],
         ),
       ),

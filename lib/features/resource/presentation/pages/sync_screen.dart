@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:resource_memory/app/routing/app_route.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class SyncScreen extends StatefulWidget {
   const SyncScreen({super.key});
@@ -81,9 +80,9 @@ class _SyncScreenState extends State<SyncScreen> {
     final signedIn = CloudSyncService.isSignedIn;
     final localCount = ResourceStore.getAll().length;
 
-    return Scaffold(
-      body: AppGradient(
-        child: SafeArea(
+    return TodoistLightScope(
+      child: Scaffold(
+      body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Center(
@@ -105,7 +104,7 @@ class _SyncScreenState extends State<SyncScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Use the same Resource Memory account on each device. Hive stays local for speed; Neon is the canonical synced library behind the Resource API.',
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -141,7 +140,7 @@ class _SyncScreenState extends State<SyncScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Cross-device check: sync on desktop, then sync here. The resource count should match and your links, screenshots, and voice memories should appear in Library.',
-                        style: AppTypography.bodySm.copyWith(color: AppColors.textMuted),
+                        style: AppTypography.bodySm.copyWith(color: TodoistLight.muted),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
@@ -223,14 +222,14 @@ class _StatusCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.kBorderColor),
+        border: Border.all(color: TodoistLight.hairline),
       ),
       child: Row(children: [
         CircleAvatar(
-          backgroundColor: AppColors.accentMuted,
-          child: Icon(icon, color: AppColors.accent),
+          backgroundColor: TodoistLight.verbMuted,
+          child: Icon(icon, color: TodoistLight.verb),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -239,7 +238,7 @@ class _StatusCard extends StatelessWidget {
             children: [
               Text(title, style: AppTypography.h3),
               const SizedBox(height: 4),
-              Text(body, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+              Text(body, style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
             ],
           ),
         ),

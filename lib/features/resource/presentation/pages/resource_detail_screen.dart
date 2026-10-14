@@ -1,13 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
 import 'package:resource_memory/features/resource/data/resource_link_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
 import 'package:resource_memory/features/resource/domain/resource.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class ResourceDetailScreen extends StatefulWidget {
   const ResourceDetailScreen({super.key, required this.resourceId});
@@ -126,12 +125,14 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
   Widget build(BuildContext context) {
     final resource = _resource;
     if (resource == null) {
-      return const Scaffold(body: Center(child: Text('Resource not found.')));
+      return const TodoistLightScope(
+        child: Scaffold(body: Center(child: Text('Resource not found.'))),
+      );
     }
     final hasLink = ResourceLinkService.normalize(resource.url) != null;
-    return Scaffold(
-      body: AppGradient(
-        child: SafeArea(
+    return TodoistLightScope(
+      child: Scaffold(
+      body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Center(
@@ -211,7 +212,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
             decoration: InputDecoration(
               hintText: 'https://example.com',
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: TodoistLight.surface,
               suffixIcon: IconButton(
                 tooltip: 'Open link',
                 onPressed: ResourceLinkService.normalize(_url.text) == null
@@ -221,11 +222,11 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: AppColors.kBorderColor),
+                borderSide: BorderSide(color: TodoistLight.hairline),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: AppColors.kBorderColor),
+                borderSide: BorderSide(color: TodoistLight.hairline),
               ),
             ),
           ),
@@ -249,14 +250,14 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
             decoration: InputDecoration(
               hintText: hint,
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: TodoistLight.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: AppColors.kBorderColor),
+                borderSide: BorderSide(color: TodoistLight.hairline),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: AppColors.kBorderColor),
+                borderSide: BorderSide(color: TodoistLight.hairline),
               ),
             ),
           ),
@@ -287,9 +288,9 @@ class _SyncedAssetCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.kBorderColor),
+        border: Border.all(color: TodoistLight.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +298,7 @@ class _SyncedAssetCard extends StatelessWidget {
           Row(children: [
             Icon(
               isVoice ? Icons.mic_none_rounded : Icons.cloud_done_outlined,
-              color: AppColors.accent,
+              color: TodoistLight.verb,
             ),
             const SizedBox(width: 8),
             Text(isVoice ? 'Original voice note' : 'Synced file', style: AppTypography.h3),
@@ -313,7 +314,7 @@ class _SyncedAssetCard extends StatelessWidget {
               isVoice
                   ? 'Voice note loaded from your synced library (${(bytes!.length / 1024).toStringAsFixed(1)} KB).'
                   : 'File loaded from your synced library (${(bytes!.length / 1024).toStringAsFixed(1)} KB).',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
             )
           else
             SizedBox(
@@ -370,9 +371,9 @@ class _SessionMemoryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.kBorderColor),
+        border: Border.all(color: TodoistLight.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,14 +383,14 @@ class _SessionMemoryCard extends StatelessWidget {
               const Icon(Icons.tab_rounded),
               const SizedBox(width: 8),
               Expanded(child: Text('Saved tab session', style: AppTypography.h3)),
-              Text('$total tabs', style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+              Text('$total tabs', style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
             ],
           ),
           if (capturedAt != null) ...[
             const SizedBox(height: 6),
             Text(
               'Captured ${capturedAt.toLocal()}',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
             ),
           ],
           const SizedBox(height: 16),
@@ -420,7 +421,7 @@ class _SessionMemoryCard extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
                           group['whatYouWereDoing'].toString(),
-                          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                          style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                         ),
                       ),
                     for (final tab in tabs)

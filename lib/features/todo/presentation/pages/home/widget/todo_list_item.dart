@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:resource_memory/app/extension/capital_firstletter_extension.dart';
 import 'package:resource_memory/app/extension/context_extension.dart';
 import 'package:resource_memory/app/extension/size_extension.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/todo/domain/entities/todo.dart';
 
@@ -31,7 +31,7 @@ class TodoListItem extends StatelessWidget {
       onDismissed: (_) => onClickDelete(),
       background: Container(
         decoration: BoxDecoration(
-          color: AppColors.error,
+          color: TodoistLight.verb,
           borderRadius: BorderRadius.circular(14),
         ),
         alignment: Alignment.centerRight,
@@ -43,9 +43,9 @@ class TodoListItem extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: AppColors.kGreyCard,
+            color: TodoistLight.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.kBorderColor),
+            border: Border.all(color: TodoistLight.hairline),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -56,9 +56,9 @@ class TodoListItem extends StatelessWidget {
                 child: Checkbox(
                   value: todo.isCompleted,
                   onChanged: (_) => onToggleComplete(),
-                  activeColor: AppColors.accent,
-                  checkColor: AppColors.kBorderColor,
-                  side: BorderSide(color: AppColors.textMuted),
+                  activeColor: TodoistLight.verb,
+                  checkColor: TodoistLight.hairline,
+                  side: BorderSide(color: TodoistLight.muted),
                   shape: const CircleBorder(),
                 ),
               ),
@@ -86,10 +86,10 @@ class TodoListItem extends StatelessWidget {
                       style: todo.isCompleted
                           ? AppTypography.bodyLg.copyWith(
                               decoration: TextDecoration.lineThrough,
-                              color: AppColors.kgrey,
+                              color: TodoistLight.secondary,
                             )
                           : AppTypography.bodyLg.copyWith(
-                              color: AppColors.textSecondary,
+                              color: TodoistLight.secondary,
                             ),
                     ),
                   ],
@@ -104,7 +104,7 @@ class TodoListItem extends StatelessWidget {
                     topRight: Radius.circular(100),
                     bottomRight: Radius.circular(100),
                   ),
-                  color: AppColors.error,
+                  color: TodoistLight.verb,
                 ),
               ),
             ],

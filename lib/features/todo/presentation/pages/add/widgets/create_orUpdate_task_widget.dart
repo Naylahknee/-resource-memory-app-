@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:resource_memory/app/extension/size_extension.dart';
 import 'package:resource_memory/app/extension/widget_padding_extension.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/todo/presentation/cubit/taskform_cubit.dart';
 import 'package:resource_memory/features/todo/presentation/pages/add/widgets/time_date_picker_widget.dart';
@@ -70,7 +70,7 @@ class CreateOrUpdateTaskWidgetState extends State<CreateOrUpdateTaskWidget> {
                             decoration: InputDecoration(
                               hintText: 'Write Task title ...',
                               hintStyle: AppTypography.bodyMd.copyWith(
-                                color: AppColors.kgrey,
+                                color: TodoistLight.secondary,
                               ),
                             ),
                           ),

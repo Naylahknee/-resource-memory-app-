@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../domain/entities/focus_task.dart';
 import '../cubit/focus_flow_cubit.dart';
@@ -37,10 +37,11 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return TodoistLightScope(
+      child: Scaffold(
+      backgroundColor: TodoistLight.canvas,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: TodoistLight.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         title: const Text('ACT'),
@@ -53,7 +54,7 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: AppColors.kBorderColor,
+                  color: TodoistLight.hairline,
                   borderRadius: BorderRadius.circular(30),
                 ),
                 child: Row(
@@ -138,6 +139,7 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -155,14 +157,14 @@ class _SegPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accent : Colors.transparent,
+          color: selected ? TodoistLight.verb : Colors.transparent,
           borderRadius: BorderRadius.circular(26),
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: AppTypography.labelLg.copyWith(
-            color: selected ? Colors.white : AppColors.textSecondary,
+            color: selected ? Colors.white : TodoistLight.secondary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
@@ -184,7 +186,7 @@ Future<EnergyLevel?> _showEnergyPicker(BuildContext context) {
         children: [
           Text(
             'I will pick something that fits.',
-            style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
           ),
           const SizedBox(height: 16),
           _EnergyChoice(
@@ -232,19 +234,19 @@ class _EnergyChoice extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: TodoistLight.surfaceVariant,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.kBorderColor),
+          border: Border.all(color: TodoistLight.hairline),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: .12),
+                color: TodoistLight.verb.withValues(alpha: .12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: AppColors.accent, size: 22),
+              child: Icon(icon, color: TodoistLight.verb, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -254,12 +256,12 @@ class _EnergyChoice extends StatelessWidget {
                   Text(title, style: AppTypography.labelLg),
                   Text(
                     subtitle,
-                    style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                    style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            const Icon(Icons.chevron_right, color: TodoistLight.secondary),
           ],
         ),
       ),

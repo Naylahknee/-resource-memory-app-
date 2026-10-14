@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/resource/data/resource_link_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
 import 'package:resource_memory/features/resource/domain/resource.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class ProjectMatchScreen extends StatefulWidget {
   const ProjectMatchScreen({super.key});
@@ -58,9 +57,9 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AppGradient(
-        child: SafeArea(
+    return TodoistLightScope(
+      child: Scaffold(
+      body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -79,7 +78,7 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Describe it normally. We’ll look through what you already saved.',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                  style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                 ),
                 const SizedBox(height: 18),
                 TextField(
@@ -91,14 +90,14 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                   decoration: InputDecoration(
                     hintText: 'I’m building a Roblox inventory system in Luau.',
                     filled: true,
-                    fillColor: AppColors.surface,
+                    fillColor: TodoistLight.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide(color: AppColors.kBorderColor),
+                      borderSide: BorderSide(color: TodoistLight.hairline),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide(color: AppColors.kBorderColor),
+                      borderSide: BorderSide(color: TodoistLight.hairline),
                     ),
                   ),
                 ),
@@ -123,7 +122,7 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'That is useful too — now you know what you still need to find.',
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                    style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -141,9 +140,9 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppColors.surface,
+                            color: TodoistLight.surface,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColors.kBorderColor),
+                            border: Border.all(color: TodoistLight.hairline),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,7 +163,7 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: AppTypography.bodySm.copyWith(
-                                    color: AppColors.accent,
+                                    color: TodoistLight.verb,
                                     decoration: TextDecoration.underline,
                                   ),
                                 ),
@@ -172,19 +171,19 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                               const SizedBox(height: 5),
                               Text(
                                 resource.summary,
-                                style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                                style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                               ),
                               if (match.terms.isNotEmpty) ...[
                                 const SizedBox(height: 8),
                                 Text(
                                   'Matched: ${match.terms.join(' · ')}',
-                                  style: AppTypography.labelMd.copyWith(color: AppColors.accent),
+                                  style: AppTypography.labelMd.copyWith(color: TodoistLight.verb),
                                 ),
                               ],
                               const SizedBox(height: 8),
                               Text(
                                 'Use when: ${resource.useWhen}',
-                                style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+                                style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
                               ),
                             ],
                           ),

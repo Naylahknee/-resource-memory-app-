@@ -2,14 +2,13 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
 import 'package:resource_memory/features/resource/data/resource_link_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
 import 'package:resource_memory/features/resource/data/voice_capture_service.dart';
 import 'package:resource_memory/features/resource/domain/resource.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 class VoiceMemoryScreen extends StatefulWidget {
   const VoiceMemoryScreen({super.key});
@@ -199,9 +198,9 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AppGradient(
-        child: SafeArea(
+    return TodoistLightScope(
+      child: Scaffold(
+      body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Center(
@@ -225,16 +224,16 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Record an idea or bring in an existing voice memo. Resource Memory will transcribe it, understand what matters, and make it searchable later.',
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                     const SizedBox(height: 28),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(28),
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
+                        color: TodoistLight.surface,
                         borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: AppColors.kBorderColor),
+                        border: Border.all(color: TodoistLight.hairline),
                       ),
                       child: Column(
                         children: [
@@ -245,13 +244,13 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: _recording
-                                  ? AppColors.accent
-                                  : AppColors.accentMuted,
+                                  ? TodoistLight.verb
+                                  : TodoistLight.verbMuted,
                             ),
                             child: Icon(
                               _recording ? Icons.stop_rounded : Icons.mic_none_rounded,
                               size: 42,
-                              color: _recording ? Colors.black : AppColors.accent,
+                              color: _recording ? Colors.black : TodoistLight.verb,
                             ),
                           ),
                           const SizedBox(height: 18),
@@ -269,7 +268,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                                     ? 'Tap stop when you are finished.'
                                     : 'Speak naturally. Mention the project, tool, site, or reason you want to remember it.'),
                             textAlign: TextAlign.center,
-                            style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                            style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                           ),
                           const SizedBox(height: 20),
                           SizedBox(
@@ -307,7 +306,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                       const SizedBox(height: 14),
                       Text(
                         'Voice notes can be saved locally now. Connect Sync Devices to add transcription, automatic understanding, cross-device sync, and the original audio file.',
-                        style: AppTypography.bodySm.copyWith(color: AppColors.textMuted),
+                        style: AppTypography.bodySm.copyWith(color: TodoistLight.muted),
                       ),
                     ],
                     const SizedBox(height: 28),
@@ -315,7 +314,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                     const SizedBox(height: 10),
                     Text(
                       'Original audio • transcript • title • summary • tools and technologies • useful-again trigger',
-                      style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                   ],
                 ),

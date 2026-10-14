@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:resource_memory/app/extension/size_extension.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/widget/bouncing_animation.dart';
 
@@ -39,7 +39,7 @@ class AppButton extends StatelessWidget {
         width: width ?? MediaQuery.sizeOf(context).width,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.accent,
+          color: TodoistLight.verb,
           borderRadius: 12.radius,
           border: Border.all(color: borderColor ?? Colors.transparent),
         ),
@@ -48,7 +48,7 @@ class AppButton extends StatelessWidget {
             Text(
               text,
               style: AppTypography.h3.copyWith(
-                color: AppColors.kBlack,
+                color: Colors.white,
                 fontSize: fontSize ?? 16,
               ),
             ),

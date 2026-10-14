@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
-import '../../../../../app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import '../../../../../app/theme/app_typography.dart';
 import '../../../domain/entities/focus_task.dart';
 import '../../cubit/focus_flow_cubit.dart';
@@ -96,7 +96,7 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
         const SizedBox(height: 6),
         Text(
           'Dump everything. One per line. You will sort it in two taps each.',
-          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
         ),
         const SizedBox(height: 16),
         Row(
@@ -112,20 +112,20 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
                 style: AppTypography.bodyLg,
                 decoration: InputDecoration(
                   hintText: 'Reply to Sam\nPay electric bill\nClean the kitchen\n…',
-                  hintStyle: AppTypography.bodyLg.copyWith(color: AppColors.textSecondary.withValues(alpha: .5)),
+                  hintStyle: AppTypography.bodyLg.copyWith(color: TodoistLight.secondary.withValues(alpha: .5)),
                   filled: true,
-                  fillColor: AppColors.surface,
+                  fillColor: TodoistLight.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: AppColors.kBorderColor),
+                    borderSide: BorderSide(color: TodoistLight.hairline),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: AppColors.kBorderColor),
+                    borderSide: BorderSide(color: TodoistLight.hairline),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.accent, width: 2),
+                    borderSide: const BorderSide(color: TodoistLight.verb, width: 2),
                   ),
                 ),
               ),
@@ -143,13 +143,13 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.piesPink,
+                  color: TodoistLight.warm,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'Listening... tap the mic to stop.',
-                style: AppTypography.bodySm.copyWith(color: AppColors.piesPink),
+                style: AppTypography.bodySm.copyWith(color: TodoistLight.warm),
               ),
             ],
           ),
@@ -158,7 +158,7 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
           const SizedBox(height: 10),
           Text(
             _speechNote!,
-            style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
           ),
         ],
         const SizedBox(height: 12),
@@ -169,7 +169,7 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
             icon: const Icon(Icons.bolt_outlined),
             label: const Text('Dump it'),
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: TodoistLight.verb,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               textStyle: AppTypography.labelLg,
@@ -183,7 +183,7 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
           const SizedBox(height: 4),
           Text(
             'How urgent? How much energy? Then it joins your queue.',
-            style: AppTypography.bodySm.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
           ),
           const SizedBox(height: 12),
           for (final task in inbox) _TriageRow(task: task),
@@ -225,9 +225,9 @@ class _TriageRowState extends State<_TriageRow> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.kBorderColor),
+        border: Border.all(color: TodoistLight.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,7 +238,7 @@ class _TriageRowState extends State<_TriageRow> {
               IconButton(
                 tooltip: 'Delete',
                 icon: const Icon(Icons.close, size: 18),
-                color: AppColors.textSecondary,
+                color: TodoistLight.secondary,
                 onPressed: () => context.read<FocusFlowCubit>().deleteInboxTask(widget.task.id),
               ),
             ],
@@ -293,17 +293,17 @@ class _Chip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accent : Colors.transparent,
+          color: selected ? TodoistLight.verb : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected ? AppColors.accent : AppColors.kBorderColor,
+            color: selected ? TodoistLight.verb : TodoistLight.hairline,
             width: 1.5,
           ),
         ),
         child: Text(
           label,
           style: AppTypography.labelMd.copyWith(
-            color: selected ? Colors.white : AppColors.textSecondary,
+            color: selected ? Colors.white : TodoistLight.secondary,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
@@ -327,16 +327,16 @@ class _MicButton extends StatelessWidget {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: listening ? AppColors.piesPink : AppColors.surface,
+          color: listening ? TodoistLight.warm : TodoistLight.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: listening ? AppColors.piesPink : AppColors.kBorderColor,
+            color: listening ? TodoistLight.warm : TodoistLight.hairline,
             width: 1.5,
           ),
         ),
         child: Icon(
           listening ? Icons.mic : Icons.mic_none_outlined,
-          color: listening ? Colors.white : AppColors.textSecondary,
+          color: listening ? Colors.white : TodoistLight.secondary,
           semanticLabel: listening ? 'Stop listening' : 'Dictate your dump',
         ),
       ),

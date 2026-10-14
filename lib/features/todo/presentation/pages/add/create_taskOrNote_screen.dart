@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:resource_memory/app/extension/size_extension.dart';
 import 'package:resource_memory/app/extension/widget_padding_extension.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/note/domain/entities/note.dart';
 import 'package:resource_memory/features/note/presentation/bloc/note_bloc.dart';
@@ -11,7 +11,6 @@ import 'package:resource_memory/features/note/presentation/bloc/note_event.dart'
 import 'package:resource_memory/features/note/presentation/pages/addNote/widget/create_orUpdate_note_widget.dart';
 import 'package:resource_memory/features/shared/cubit/tab_cubit.dart';
 import 'package:resource_memory/features/todo/domain/entities/todo.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
 
 import 'widgets/create_orUpdate_task_widget.dart';
 
@@ -60,7 +59,7 @@ class _CreateTaskOrNoteScreenState extends State<CreateTaskOrNoteScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AppGradient(
+      body: TodoistLightScope(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -77,7 +76,7 @@ class _CreateTaskOrNoteScreenState extends State<CreateTaskOrNoteScreen>
                         onPressed: () => _showDeleteDialog(context),
                         icon: Icon(
                           CupertinoIcons.delete,
-                          color: AppColors.error,
+                          color: TodoistLight.verb,
                         ),
                       ).paddingOnly(right: 20)
                     : const SizedBox(width: 48 + 20),
@@ -110,22 +109,22 @@ class _CreateTaskOrNoteScreenState extends State<CreateTaskOrNoteScreen>
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.kBorderColor,
+        color: TodoistLight.hairline,
         borderRadius: BorderRadius.circular(30),
       ),
       child: IntrinsicWidth(
         child: TabBar(
           controller: controller,
           indicator: BoxDecoration(
-            color: AppColors.kTabGreyColor,
+            color: TodoistLight.surface,
             borderRadius: BorderRadius.circular(30),
           ),
           indicatorSize: TabBarIndicatorSize.tab,
           dividerColor: Colors.transparent,
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           labelStyle: AppTypography.labelLg,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white38,
+          labelColor: TodoistLight.ink,
+          unselectedLabelColor: TodoistLight.secondary,
           tabs: [
             Tab(text: 'TASK').paddingSymmetric(horizontal: 10),
             Tab(text: 'NOTE'),
@@ -139,25 +138,25 @@ class _CreateTaskOrNoteScreenState extends State<CreateTaskOrNoteScreen>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.kGreyCard,
+        backgroundColor: TodoistLight.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppColors.kBorderColor),
+          side: BorderSide(color: TodoistLight.hairline),
         ),
         title: const Text(
           'Delete Task',
-          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          style: TextStyle(color: TodoistLight.ink, fontWeight: FontWeight.w600),
         ),
         content: Text(
           'This action cannot be undone.',
-          style: AppTypography.bodyLg.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.bodyLg.copyWith(color: TodoistLight.secondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text(
               'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: TodoistLight.secondary),
             ),
           ),
           TextButton(
@@ -169,7 +168,7 @@ class _CreateTaskOrNoteScreenState extends State<CreateTaskOrNoteScreen>
               );
               Navigator.pop(context);
             },
-            child: Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: Text('Delete', style: TextStyle(color: TodoistLight.verb)),
           ),
         ],
       ),

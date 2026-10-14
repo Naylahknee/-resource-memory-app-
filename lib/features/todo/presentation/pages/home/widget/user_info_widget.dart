@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:resource_memory/app/extension/size_extension.dart';
 import 'package:resource_memory/app/extension/widget_padding_extension.dart';
 import 'package:resource_memory/app/theme/app_assets.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 
 class UserInfoWidget extends StatelessWidget {
@@ -37,7 +37,7 @@ class UserInfoWidget extends StatelessWidget {
               children: [
                 Text(
                   'Hi, Good Morning',
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.kgrey),
+                  style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                 ),
                 Text('Jacobe', style: AppTypography.h2),
               ],
@@ -46,12 +46,12 @@ class UserInfoWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
+                color: TodoistLight.surfaceVariant,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Icon(
                 Icons.arrow_forward,
-                color: AppColors.textMuted,
+                color: TodoistLight.muted,
                 size: 16,
               ),
             ),

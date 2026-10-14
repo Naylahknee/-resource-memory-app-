@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 
 class DueAtPicker extends StatelessWidget {
   const DueAtPicker({super.key, required this.dueAt, required this.onChanged});
@@ -113,7 +113,7 @@ class _PickerCard extends StatelessWidget {
   final bool isPlaceholder;
   final VoidCallback onTap;
 
-  static final _accent = AppColors.accent;
+  static final _accent = TodoistLight.verb;
 
   @override
   Widget build(BuildContext context) {
@@ -122,9 +122,9 @@ class _PickerCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.kGreyCard,
+          color: TodoistLight.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.kBorderColor, width: 1.5),
+          border: Border.all(color: TodoistLight.hairline, width: 1.5),
         ),
         child: Row(
           children: [
@@ -146,7 +146,7 @@ class _PickerCard extends StatelessWidget {
                     label.toUpperCase(),
                     style: TextStyle(
                       fontSize: 10,
-                      color: AppColors.textSecondary,
+                      color: TodoistLight.secondary,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -156,7 +156,7 @@ class _PickerCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: isPlaceholder ? AppColors.kgrey : Colors.white,
+                      color: isPlaceholder ? TodoistLight.secondary : Colors.white,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:resource_memory/app/routing/app_route.dart';
-import 'package:resource_memory/app/theme/app_colors.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
-import 'package:resource_memory/features/widget/app_gradient.dart';
+import 'package:resource_memory/features/widget/todoist_light.dart';
 
 class ResourceHomeScreen extends StatelessWidget {
   const ResourceHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    return TodoistLightScope(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 900;
         final isTablet = constraints.maxWidth >= 650;
         final horizontalPadding = isDesktop ? 40.0 : (isTablet ? 28.0 : 20.0);
@@ -23,8 +23,7 @@ class ResourceHomeScreen extends StatelessWidget {
                   onPressed: () => context.go('/${Routes.saveResourceScreen}'),
                   child: const Icon(Icons.add),
                 ),
-          body: AppGradient(
-            child: SafeArea(
+          body: SafeArea(
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
                   horizontal: horizontalPadding,
@@ -105,7 +104,7 @@ class ResourceHomeScreen extends StatelessWidget {
                         const SizedBox(height: 32),
                         Text(
                           'Save it once. Find it when it matters.',
-                          style: AppTypography.bodyMd.copyWith(color: AppColors.textMuted),
+                          style: AppTypography.bodyMd.copyWith(color: TodoistLight.muted),
                         ),
                       ],
                     ),
@@ -113,9 +112,9 @@ class ResourceHomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-          ),
         );
-      },
+        },
+      ),
     );
   }
 }
@@ -137,7 +136,7 @@ class _Header extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Save useful coding resources and bring them back when a project needs them.',
-                style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+                style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
               ),
             ],
           ),
@@ -176,13 +175,13 @@ class _Navigation extends StatelessWidget {
     final nav = Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.kBorderColor,
+        color: TodoistLight.hairline,
         borderRadius: BorderRadius.circular(30),
       ),
       child: Row(
         children: [
           Expanded(child: _NavPill(label: 'NOW', selected: true, onTap: () {})),
-          Expanded(child: _NavPill(label: 'ACT', highlight: AppColors.piesPink, onTap: () => context.go('/${Routes.focusFlowScreen}'))),
+          Expanded(child: _NavPill(label: 'ACT', highlight: TodoistLight.warm, onTap: () => context.go('/${Routes.focusFlowScreen}'))),
           Expanded(child: _NavPill(label: 'REMEMBER', onTap: () => context.go('/${Routes.commitmentsScreen}'))),
           Expanded(child: _NavPill(label: 'LIBRARY', onTap: () => context.go('/${Routes.libraryScreen}'))),
         ],
@@ -202,9 +201,9 @@ class _ReturnSection extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(isDesktop ? 24 : 20),
       decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: .72),
+        color: TodoistLight.surface.withValues(alpha: .72),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.kBorderColor),
+        border: Border.all(color: TodoistLight.hairline),
       ),
       child: isDesktop
           ? Row(
@@ -235,7 +234,7 @@ class _ReturnCopy extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'As your library grows, this space will bring older resources back when they become relevant again.',
-          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
+          style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
         ),
       ],
     );
@@ -257,7 +256,7 @@ class _NavPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accent : (highlight ?? Colors.transparent),
+          color: selected ? TodoistLight.verb : (highlight ?? Colors.transparent),
           borderRadius: BorderRadius.circular(30),
         ),
         child: Text(
@@ -265,7 +264,7 @@ class _NavPill extends StatelessWidget {
           textAlign: TextAlign.center,
           style: AppTypography.labelLg.copyWith(
             fontSize: 13.5,
-            color: (selected || highlight != null) ? Colors.white : AppColors.textMuted,
+            color: (selected || highlight != null) ? Colors.white : TodoistLight.muted,
           ),
         ),
       ),
@@ -287,21 +286,21 @@ class _ActionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: TodoistLight.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.kBorderColor),
+        border: Border.all(color: TodoistLight.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            backgroundColor: AppColors.accentMuted,
-            child: Icon(icon, color: AppColors.accent),
+            backgroundColor: TodoistLight.verbMuted,
+            child: Icon(icon, color: TodoistLight.verb),
           ),
           const SizedBox(height: 16),
           Text(title, style: AppTypography.h3),
           const SizedBox(height: 8),
-          Text(body, style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary)),
+          Text(body, style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary)),
           const SizedBox(height: 18),
           TextButton.icon(
             onPressed: onTap,

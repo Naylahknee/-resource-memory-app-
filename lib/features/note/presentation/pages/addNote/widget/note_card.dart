@@ -159,7 +159,7 @@ class _CardContent extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.black.withValues(alpha: .2)),
-                  color: AppColors.surfaceVariant,
+                  color: TodoistLight.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
