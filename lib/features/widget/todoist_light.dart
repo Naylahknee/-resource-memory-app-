@@ -17,8 +17,10 @@ abstract final class TodoistLight {
   static const muted = Color(0xFFAAAAAA);
   static const verb = Color(0xFFDC4C3E); // Todoist red: primary actions only.
   static const verbTint = Color(0xFFFBE5E2); // Light red tint for active states.
+  static const verbMuted = Color(0xFFFBE5E2); // Alias for verbTint.
   static const warm = Color(0xFFEB8909); // P2 orange: secondary warmth.
   static const warmTint = Color(0xFFFEF3E2); // Light orange tint.
+  static const surfaceVariant = Color(0xFFFAFAFA); // Alias for surfaceGray.
 }
 
 /// Gives a screen light-theme text and component defaults so
