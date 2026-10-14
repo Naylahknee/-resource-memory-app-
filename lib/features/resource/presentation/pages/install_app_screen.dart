@@ -26,10 +26,10 @@ class InstallAppScreen extends StatelessWidget {
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),
-                      Text('Install Resource Memory', style: AppTypography.h3),
+                      Text('Install NanyNany', style: AppTypography.h3),
                     ]),
                     const SizedBox(height: 28),
-                    Text('Put Resource Memory on your home screen.', style: AppTypography.h2),
+                    Text('Put NanyNany on your home screen.', style: AppTypography.h2),
                     const SizedBox(height: 8),
                     Text(
                       kIsWeb
@@ -42,10 +42,10 @@ class InstallAppScreen extends StatelessWidget {
                       icon: Icons.phone_iphone,
                       title: 'iPhone / iPad',
                       steps: [
-                        'Open Resource Memory in Safari.',
+                        'Open NanyNany in Safari.',
                         'Tap the Share button.',
                         'Choose Add to Home Screen.',
-                        'Tap Add. Resource Memory will appear with your other apps.',
+                        'Tap Add. NanyNany will appear with your other apps.',
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -53,7 +53,7 @@ class InstallAppScreen extends StatelessWidget {
                       icon: Icons.android,
                       title: 'Android',
                       steps: [
-                        'Open Resource Memory in Chrome.',
+                        'Open NanyNany in Chrome.',
                         'Open the browser menu.',
                         'Choose Install app or Add to Home screen.',
                         'Confirm Install.',
@@ -65,7 +65,7 @@ class InstallAppScreen extends StatelessWidget {
                       title: 'After installing',
                       steps: [
                         'Open Sync Devices.',
-                        'Sign in with the same Resource Memory account you use on desktop.',
+                        'Sign in with the same NanyNany account you use on desktop.',
                         'Tap Sync now.',
                         'Your links, screenshots, and voice memories should appear on both devices.',
                       ],

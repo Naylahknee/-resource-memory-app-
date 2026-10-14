@@ -13,7 +13,7 @@ abstract final class TodoistLight {
   static const ink = Color(0xFF202020);
   static const secondary = Color(0xFF62615C);
   static const muted = Color(0xFF77746F);
-  static const verb = Color(0xFFDC4C3E); // Todoist red: primary actions only.
+  static const verb = Color(0xFFC83E32); // Todoist red: primary actions only.
   static const verbTint = Color(0xFFFBE5E2); // Light red tint for active states.
   static const verbMuted = Color(0xFFFBE5E2); // Alias for verbTint.
   static const warm = Color(0xFFEB8909); // P2 orange: secondary warmth.

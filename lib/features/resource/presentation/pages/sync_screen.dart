@@ -103,7 +103,7 @@ class _SyncScreenState extends State<SyncScreen> {
                     Text('Desktop + mobile', style: AppTypography.h2),
                     const SizedBox(height: 8),
                     Text(
-                      'Use the same Resource Memory account on each device. Hive stays local for speed; Neon is the canonical synced library behind the Resource API.',
+                      'Use the same NanyNany account on each device to keep your memories together. You can also keep using this device without an account.',
                       style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                     const SizedBox(height: 16),
@@ -112,7 +112,7 @@ class _SyncScreenState extends State<SyncScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => context.go('/${Routes.installAppScreen}'),
                         icon: const Icon(Icons.install_mobile_outlined),
-                        label: const Text('Install Resource Memory on this device'),
+                        label: const Text('Install NanyNany on this device'),
                       ),
                     ),
                     const SizedBox(height: 24),

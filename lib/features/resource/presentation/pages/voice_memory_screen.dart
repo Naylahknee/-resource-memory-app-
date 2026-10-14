@@ -226,7 +226,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                     Text('Say it before you forget it.', style: AppTypography.h2),
                     const SizedBox(height: 8),
                     Text(
-                      'Record an idea or bring in an existing voice memo. Resource Memory will transcribe it, understand what matters, and make it searchable later.',
+                      'Record an idea or import a voice memo. Connect Sync devices for transcription and automatic understanding.',
                       style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                     const SizedBox(height: 28),
