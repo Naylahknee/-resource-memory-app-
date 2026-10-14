@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:resource_memory/app/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,11 +20,16 @@ void main() {
   GoogleFonts.config.allowRuntimeFetching = false;
   late Directory temp;
   GoRouter? router;
+  late ThemeData theme;
   setUp(() async {
     temp = await Directory.systemTemp.createTemp('nanynany-test-');
     Hive.init(temp.path);
     await ResourceStore.initialize(); await WelcomeStore.initialize();
     await CommitmentStore.initialize(); await FocusStore.initialize();
+    theme = TodoistLightScope.themeFor(AppTheme.dark);
+    await GoogleFonts.pendingFonts();
+    final icons = FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await icons.load();
   });
   tearDown(() async { router?.dispose(); router = null; await Hive.close(); await temp.delete(recursive: true); });
 
@@ -31,18 +38,18 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize); addTearDown(tester.view.resetDevicePixelRatio);
     router = GoRouter(navigatorKey: memoryRootNavigatorKey, routes: resourceRoutes, initialLocation: initial);
-    await tester.pumpWidget(MaterialApp.router(theme: TodoistLightScope.themeFor(ThemeData()), routerConfig: router,
+    await tester.pumpWidget(MaterialApp.router(theme: theme, routerConfig: router,
       builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)), child: child!)));
     await tester.pumpAndSettle();
   }
   Future<void> tap(WidgetTester tester, String label) async {
     final finder = find.text(label).last;
-    await tester.ensureVisible(finder); await tester.tap(finder);
-    // Hive uses real file I/O, outside the widget test's fake clock.
-    for (var i = 0; i < 3; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
-      await tester.pump();
-    }
+    await tester.ensureVisible(finder);
+    // Pointer callbacks and Hive writes run on the real I/O clock together.
+    await tester.runAsync(() async {
+      await tester.tap(finder);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
     await tester.pumpAndSettle();
   }
   Future<void> unmount(WidgetTester tester) async { await tester.pumpWidget(const SizedBox()); await tester.pumpAndSettle(); }

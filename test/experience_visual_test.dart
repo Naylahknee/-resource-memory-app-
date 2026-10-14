@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:resource_memory/app/theme/app_theme.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -17,11 +19,16 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
   testWidgets('render the complete guided experience for visual review', (tester) async {
+    late ThemeData theme;
     final temp = await tester.runAsync(() async {
       final directory = await Directory.systemTemp.createTemp('nanynany-visual-');
       Hive.init(directory.path);
       await ResourceStore.initialize(); await WelcomeStore.initialize();
       await CommitmentStore.initialize(); await FocusStore.initialize();
+      theme = TodoistLightScope.themeFor(AppTheme.dark);
+      await GoogleFonts.pendingFonts();
+      final icons = FontLoader('MaterialIcons')..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      await icons.load();
       return directory;
     });
     tester.view.physicalSize = const Size(390, 844);
@@ -30,10 +37,12 @@ void main() {
     final router = GoRouter(navigatorKey: memoryRootNavigatorKey, routes: resourceRoutes);
     final boundary = GlobalKey();
     await tester.pumpWidget(RepaintBoundary(key: boundary, child: MaterialApp.router(
-      theme: TodoistLightScope.themeFor(ThemeData()), routerConfig: router,
+      theme: theme, routerConfig: router, debugShowCheckedModeBanner: false,
     )));
     await tester.pumpAndSettle();
     Future<void> picture(String name) async {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       final paint = boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       await tester.runAsync(() async {
@@ -43,15 +52,16 @@ void main() {
         await file.parent.create(recursive: true);
         await file.writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
+        debugPrint('Visual review rendered: $name');
       });
     }
     Future<void> tap(String label) async {
       final target = find.text(label).last;
-      await tester.ensureVisible(target); await tester.tap(target);
-      for (var i = 0; i < 3; i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
-        await tester.pump();
-      }
+      await tester.ensureVisible(target);
+      await tester.runAsync(() async {
+        await tester.tap(target);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
       await tester.pumpAndSettle();
     }
     await picture('01-welcome');
@@ -71,6 +81,8 @@ void main() {
     await tester.pumpAndSettle(); await picture('10-desktop-home');
     await tester.pumpWidget(const SizedBox()); await tester.pumpAndSettle();
     router.dispose();
+    debugPrint('Visual review: disposing persistence');
     await tester.runAsync(() async { await Hive.close(); await temp!.delete(recursive: true); });
+    debugPrint('Visual review complete');
   });
 }

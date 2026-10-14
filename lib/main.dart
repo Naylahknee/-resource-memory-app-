@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:resource_memory/app/routing/go_router.dart';
 import 'package:resource_memory/app/theme/app_theme.dart';
+import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/features/commitment/data/commitment_store.dart';
 import 'package:resource_memory/features/focus_flow/data/focus_store.dart';
@@ -20,6 +21,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+  await GoogleFonts.pendingFonts([AppTypography.textTheme]);
   await Hive.initFlutter();
   await CloudSyncService.initialize();
   await ResourceStore.initialize();
