@@ -87,6 +87,29 @@ void main() {
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'community funding');
     await unmount(tester);
   });
+  testWidgets('capture keeps an invalid link visible with an inline error', (tester) async {
+    await WelcomeStore.markSeen(); await mount(tester);
+    await tap(tester, 'Save something');
+    final input = find.byType(TextField).last;
+    await tester.enterText(input, 'not a link');
+    await tap(tester, 'Save link');
+    expect(find.text('Enter a valid http or https link.'), findsOneWidget);
+    expect(tester.widget<TextField>(input).controller!.text, 'not a link');
+    expect(ResourceStore.getAll(), isEmpty);
+    await unmount(tester);
+  });
+  testWidgets('small Memory view can scroll with large text and the keyboard', (tester) async {
+    await WelcomeStore.markSeen(); await mount(tester, initial: '/library', scale: 1.8);
+    tester.view.physicalSize = const Size(320, 568);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byType(TextField));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await unmount(tester);
+  });
   testWidgets('welcome remains usable with large text and reduced motion', (tester) async {
     await mount(tester, scale: 1.8);
     expect(tester.takeException(), isNull);

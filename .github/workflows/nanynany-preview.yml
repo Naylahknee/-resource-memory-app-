@@ -21,6 +21,12 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - run: flutter test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nanynany-layout-review
+          path: build/experience-review
+          if-no-files-found: ignore
       - run: flutter build web --release --base-href "/"
       - uses: actions/upload-artifact@v4
         with:
