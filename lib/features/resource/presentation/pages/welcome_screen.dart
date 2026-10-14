@@ -28,6 +28,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   late final AnimationController _hintController;
   late final AnimationController _exitController;
+  late final AnimationController _waveController;
 
   @override
   void initState() {
@@ -40,12 +41,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 450),
     );
+    // Gentle wave: the mascot rocks side to side like it's waving hello.
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _hintController.dispose();
     _exitController.dispose();
+    _waveController.dispose();
     super.dispose();
   }
 
@@ -145,11 +152,25 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         ),
                         const Spacer(),
                         // The mascot, waving hello.
-                        Image.asset(
-                          'assets/mascot_wave_light.png',
-                          width: 240,
-                          height: 240,
-                          fit: BoxFit.contain,
+                        AnimatedBuilder(
+                          animation: _waveController,
+                          builder: (context, child) {
+                            // Gentle rock + bob, like a happy wave.
+                            final t = _waveController.value;
+                            return Transform.translate(
+                              offset: Offset(0, -8 * t),
+                              child: Transform.rotate(
+                                angle: 0.06 * (t * 2 - 1),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Image.asset(
+                            'assets/mascot_wave_light.png',
+                            width: 240,
+                            height: 240,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                         const Spacer(),
                         // Swipe-up hint.
