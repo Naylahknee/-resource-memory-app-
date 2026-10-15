@@ -1,9 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import { hashPassword, verifyPassword, passwordCryptoSelfTest } from './password';
-
-// BUILD-MARKER security-pass-2026-10-15: forces the Actions workflow to deploy
-// the current main (password-compat fix) to production. Removed in the follow-up
-// security-hardening commit. No behavior change.
+import { hashPassword, verifyPassword } from './password';
 
 interface Env {
   DATABASE_URL: string;
@@ -12,17 +8,143 @@ interface Env {
 }
 
 const encoder = new TextEncoder();
-const corsHeaders = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization, content-type, x-file-name',
-  'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+
+// ---------------------------------------------------------------------------
+// CORS: locked down from the old wildcard. Allowed browser origins:
+// - any chrome-extension:// origin (the NanyNany Chrome extension; its
+//   install-specific ID is not known ahead of time, so the scheme is matched)
+// - https://naylahknee.github.io (the Flutter web preview on GitHub Pages)
+// Non-browser clients (Flutter mobile, curl) send no Origin header and are
+// unaffected. Unknown browser origins get no ACAO header, so the browser
+// blocks the read. Note: reflecting the extension scheme is safe here
+// because auth is a Bearer token, which browsers never send automatically.
+// ---------------------------------------------------------------------------
+const ALLOWED_ORIGINS = new Set(['https://naylahknee.github.io']);
+
+function corsHeadersFor(request: Request): Record<string, string> {
+  const base = {
+    'access-control-allow-headers': 'authorization, content-type, x-file-name',
+    'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  };
+  const origin = request.headers.get('origin');
+  if (!origin) return base;
+  if (ALLOWED_ORIGINS.has(origin) || origin.startsWith('chrome-extension://')) {
+    return { ...base, 'access-control-allow-origin': origin, vary: 'Origin' };
+  }
+  return base;
+}
+
+const securityHeaders: Record<string, string> = {
+  'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'no-referrer',
 };
 
-function json(data: unknown, status = 200): Response {
+function json(
+  data: unknown,
+  status = 200,
+  request?: Request,
+  extra?: Record<string, string>,
+): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, 'content-type': 'application/json; charset=utf-8' },
+    headers: {
+      ...(request ? corsHeadersFor(request) : {}),
+      ...securityHeaders,
+      'content-type': 'application/json; charset=utf-8',
+      ...(extra ?? {}),
+    },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Rate limiting (fix for the "no rate limiting anywhere" finding).
+// In-memory per isolate: Cloudflare runs many isolates per worker and each
+// keeps its own counters, so these limits are approximate under load -- a
+// caller spread across isolates gets roughly N x the limit. That still stops
+// casual password-guessing and runaway OpenAI bills. Exact global limits
+// would need a Durable Object counter.
+// ---------------------------------------------------------------------------
+type RateBucket = { count: number; resetAt: number };
+const rateBuckets = new Map<string, RateBucket>();
+
+function rateLimitCheck(
+  key: string,
+  max: number,
+  windowMs: number,
+): { allowed: boolean; retryAfterSec: number } {
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    if (rateBuckets.size > 5000) {
+      for (const [k, b] of rateBuckets) {
+        if (b.resetAt <= now) rateBuckets.delete(k);
+      }
+    }
+    return { allowed: true, retryAfterSec: 0 };
+  }
+  bucket.count += 1;
+  if (bucket.count > max) {
+    return { allowed: false, retryAfterSec: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
+  }
+  return { allowed: true, retryAfterSec: 0 };
+}
+
+function clientIp(request: Request): string {
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (cfIp) return cfIp.trim();
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return 'unknown';
+}
+
+function dayKey(): string {
+  return new Date().toISOString().slice(0, 10); // UTC day
+}
+
+// Auth endpoints: strict per-IP bucket (brute-force protection).
+const AUTH_LIMIT = 10;
+const AUTH_WINDOW_MS = 15 * 60 * 1000;
+
+function checkAuthRateLimit(request: Request): void {
+  const result = rateLimitCheck(`auth:${clientIp(request)}`, AUTH_LIMIT, AUTH_WINDOW_MS);
+  if (!result.allowed) {
+    throw new ResponseError(
+      429,
+      `Too many sign-in attempts. Try again in ${result.retryAfterSec} seconds.`,
+    );
+  }
+}
+
+// Sync/reindex call paid OpenAI embeddings per item: per-user daily cap.
+const PAID_ITEM_DAILY_CAP = 200;
+
+function checkPaidItemCap(userId: string, kind: 'sync' | 'reindex', items: number): void {
+  const key = `${kind}:${userId}:${dayKey()}`;
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  const used = bucket && bucket.resetAt > now ? bucket.count : 0;
+  if (used + items > PAID_ITEM_DAILY_CAP) {
+    throw new ResponseError(
+      429,
+      `Daily processing limit reached (${PAID_ITEM_DAILY_CAP} items). Try again tomorrow.`,
+    );
+  }
+}
+
+function addPaidItemUsage(userId: string, kind: 'sync' | 'reindex', items: number): void {
+  if (!items) return;
+  const key = `${kind}:${userId}:${dayKey()}`;
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (bucket && bucket.resetAt > now) {
+    bucket.count += items;
+  } else {
+    // 25h window so a UTC-day boundary never double-counts.
+    rateBuckets.set(key, { count: items, resetAt: now + 25 * 60 * 60 * 1000 });
+  }
 }
 
 function toHex(bytes: ArrayBuffer): string {
@@ -180,7 +302,7 @@ async function analyzeImage(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    return json(JSON.parse(outputText));
+    return json(JSON.parse(outputText), 200, request);
   } catch {
     throw new ResponseError(502, 'Image analysis returned an invalid result.');
   }
@@ -313,7 +435,7 @@ async function analyzeAudio(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    return json({ ...JSON.parse(outputText), transcript });
+    return json({ ...JSON.parse(outputText), transcript }, 200, request);
   } catch {
     throw new ResponseError(502, 'Voice analysis returned an invalid result.');
   }
@@ -378,7 +500,7 @@ async function analyzeSession(request: Request, env: Env): Promise<Response> {
   if (tabs.length > 500) throw new ResponseError(413, 'Too many tabs in one session.');
 
   const fallback = deterministicSessionAnalysis(tabs);
-  if (!env.OPENAI_API_KEY) return json(fallback);
+  if (!env.OPENAI_API_KEY) return json(fallback, 200, request);
 
   const openAiResponse = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -452,15 +574,15 @@ async function analyzeSession(request: Request, env: Env): Promise<Response> {
   const payload = (await openAiResponse.json()) as Record<string, any>;
   if (!openAiResponse.ok || typeof payload.output_text !== 'string') {
     console.error('OpenAI session analysis failed', payload);
-    return json(fallback);
+    return json(fallback, 200, request);
   }
 
   try {
     const parsed = JSON.parse(payload.output_text);
-    if (!Array.isArray(parsed.groups) || !parsed.groups.length) return json(fallback);
-    return json(parsed);
+    if (!Array.isArray(parsed.groups) || !parsed.groups.length) return json(fallback, 200, request);
+    return json(parsed, 200, request);
   } catch {
-    return json(fallback);
+    return json(fallback, 200, request);
   }
 }
 
@@ -897,14 +1019,17 @@ async function handleSearch(
       matchedTerms: entry.terms,
       why: entry.why,
     })),
-  });
+  }, 200, request);
 }
 
 async function handleReindex(
+  request: Request,
   sql: SqlClient,
   userId: string,
   apiKey: string | undefined,
 ): Promise<Response> {
+  // Reindex batches up to 100 items; reserve the whole batch against the cap.
+  checkPaidItemCap(userId, 'reindex', 100);
   let batch: Record<string, any>[];
   try {
     batch = asRows(
@@ -958,12 +1083,13 @@ async function handleReindex(
       where user_id = ${userId} and (search_text is null or embedding is null)
     `,
   );
+  addPaidItemUsage(userId, 'reindex', indexed);
   return json({
     ok: true,
     indexed,
     pendingSearchText: Number(counts[0]?.pending_search_text) || 0,
     pendingEmbeddings: Number(counts[0]?.pending_embeddings) || 0,
-  });
+  }, 200, request);
 }
 
 class ResponseError extends Error {
@@ -974,8 +1100,12 @@ class ResponseError extends Error {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
-    if (!env.DATABASE_URL) return json({ error: 'DATABASE_URL is not configured.' }, 503);
+    if (request.method === 'OPTIONS')
+      return new Response(null, {
+        status: 204,
+        headers: { ...corsHeadersFor(request), ...securityHeaders },
+      });
+    if (!env.DATABASE_URL) return json({ error: 'DATABASE_URL is not configured.' }, 503, request);
 
     const sql = neon(env.DATABASE_URL);
     const url = new URL(request.url);
@@ -983,19 +1113,11 @@ export default {
 
     try {
       if (request.method === 'GET' && path === '/health') {
-        const passwordCryptoOk = await passwordCryptoSelfTest();
-        return json({
-          ok: passwordCryptoOk,
-          service: 'resource-memory-api',
-          imageIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
-          voiceIntelligenceConfigured: Boolean(env.OPENAI_API_KEY),
-          semanticSearchConfigured: Boolean(env.OPENAI_API_KEY),
-          passwordCryptoOk,
-          build: 'password-compat-v2',
-        }, passwordCryptoOk ? 200 : 503);
+        return json({ ok: true }, 200, request);
       }
 
       if (request.method === 'POST' && path === '/auth/register') {
+        checkAuthRateLimit(request);
         const body = await readJson(request);
         const email = String(body.email ?? '').trim().toLowerCase();
         const password = String(body.password ?? '');
@@ -1012,10 +1134,11 @@ export default {
           values (${userId}, ${email}, ${passwordRecord.salt}, ${passwordRecord.hash})
         `;
         const token = await issueSession(sql, userId);
-        return json({ token, email }, 201);
+        return json({ token, email }, 201, request);
       }
 
       if (request.method === 'POST' && path === '/auth/login') {
+        checkAuthRateLimit(request);
         const body = await readJson(request);
         const email = String(body.email ?? '').trim().toLowerCase();
         const password = String(body.password ?? '');
@@ -1045,17 +1168,18 @@ export default {
           `;
         }
         const token = await issueSession(sql, rows[0].id as string);
-        return json({ token, email: rows[0].email });
+        return json({ token, email: rows[0].email }, 200, request);
       }
 
       if (request.method === 'POST' && path === '/auth/logout') {
+        checkAuthRateLimit(request);
         const auth = request.headers.get('authorization') ?? '';
         const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
         if (token) {
           const tokenHash = await hashToken(token);
           await sql`delete from sessions where token_hash = ${tokenHash}`;
         }
-        return json({ ok: true });
+        return json({ ok: true }, 200, request);
       }
 
       if (request.method === 'POST' && path === '/analyze-image') {
@@ -1080,7 +1204,7 @@ export default {
 
       if (request.method === 'POST' && path === '/reindex') {
         const userId = await requireUser(request, sql);
-        return await handleReindex(sql, userId, env.OPENAI_API_KEY);
+        return await handleReindex(request, sql, userId, env.OPENAI_API_KEY);
       }
 
       if (request.method === 'GET' && path === '/resources') {
@@ -1091,7 +1215,7 @@ export default {
           where user_id = ${userId}
           order by updated_at desc
         `;
-        return json({ resources: rows.map((row) => row.data) });
+        return json({ resources: rows.map((row) => row.data) }, 200, request);
       }
 
       if (request.method === 'POST' && path === '/sync') {
@@ -1101,6 +1225,8 @@ export default {
         const items = resources
           .map((item) => ({ id: String(item?.id ?? ''), data: item }))
           .filter((item) => item.id);
+        // Each synced item can trigger a paid embedding call: daily per-user cap.
+        checkPaidItemCap(userId, 'sync', items.length);
         const indexable = items.filter((item) => item.data && typeof item.data === 'object');
         const existing =
           indexable.length > 0
@@ -1120,7 +1246,8 @@ export default {
         for (const item of items) {
           await writeIndexedResource(sql, userId, item.id, item.data, plans.get(item.id) ?? null);
         }
-        return json({ ok: true, count: resources.length });
+        addPaidItemUsage(userId, 'sync', items.length);
+        return json({ ok: true, count: resources.length }, 200, request);
       }
 
       const resourceMatch = path.match(/^\/resources\/([^/]+)$/);
@@ -1134,7 +1261,7 @@ export default {
         const plan = existing ? planIndex(data as Record<string, any>, existing.get(id)) : null;
         if (plan) await fillEmbeddings([plan], env.OPENAI_API_KEY);
         await writeIndexedResource(sql, userId, id, data, plan);
-        return json({ ok: true });
+        return json({ ok: true }, 200, request);
       }
 
       if (resourceMatch && request.method === 'DELETE') {
@@ -1143,21 +1270,31 @@ export default {
         await sql`delete from resources where user_id = ${userId} and id = ${id}`;
         const objects = await env.RESOURCE_FILES.list({ prefix: `${userId}/${id}/` });
         await Promise.all(objects.objects.map((object) => env.RESOURCE_FILES.delete(object.key)));
-        return json({ ok: true });
+        return json({ ok: true }, 200, request);
       }
 
       const uploadMatch = path.match(/^\/uploads\/([^/]+)$/);
       if (uploadMatch && request.method === 'POST') {
         const userId = await requireUser(request, sql);
         const resourceId = decodeURIComponent(uploadMatch[1]);
+        // Cap file uploads at 25 MB (previously unbounded).
+        const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+        const declared = Number(request.headers.get('content-length'));
+        if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) {
+          throw new ResponseError(413, 'File is too large. Keep uploads under 25 MB.');
+        }
         const fileName = request.headers.get('x-file-name') || 'resource-file';
         const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
         const key = `${userId}/${resourceId}/${crypto.randomUUID()}-${safeName}`;
-        await env.RESOURCE_FILES.put(key, request.body, {
+        const fileBytes = await request.arrayBuffer();
+        if (fileBytes.byteLength > MAX_UPLOAD_BYTES) {
+          throw new ResponseError(413, 'File is too large. Keep uploads under 25 MB.');
+        }
+        await env.RESOURCE_FILES.put(key, fileBytes, {
           httpMetadata: { contentType: request.headers.get('content-type') ?? 'application/octet-stream' },
           customMetadata: { userId, resourceId, fileName },
         });
-        return json({ ok: true, assetPath: `/assets/${encodeURIComponent(resourceId)}` }, 201);
+        return json({ ok: true, assetPath: `/assets/${encodeURIComponent(resourceId)}` }, 201, request);
       }
 
       const assetMatch = path.match(/^\/assets\/([^/]+)$/);
@@ -1168,17 +1305,17 @@ export default {
         if (!list.objects.length) throw new ResponseError(404, 'File not found.');
         const object = await env.RESOURCE_FILES.get(list.objects[0].key);
         if (!object) throw new ResponseError(404, 'File not found.');
-        const headers = new Headers(corsHeaders);
+        const headers = new Headers({ ...corsHeadersFor(request), ...securityHeaders });
         object.writeHttpMetadata(headers);
         headers.set('etag', object.httpEtag);
         return new Response(object.body, { headers });
       }
 
-      return json({ error: 'Not found.' }, 404);
+      return json({ error: 'Not found.' }, 404, request);
     } catch (error) {
-      if (error instanceof ResponseError) return json({ error: error.message }, error.status);
+      if (error instanceof ResponseError) return json({ error: error.message }, error.status, request);
       console.error(error);
-      return json({ error: 'Unexpected server error.' }, 500);
+      return json({ error: 'Unexpected server error.' }, 500, request);
     }
   },
 };
