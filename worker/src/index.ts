@@ -1,6 +1,10 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import { hashPassword, verifyPassword, passwordCryptoSelfTest } from './password';
 
+// BUILD-MARKER security-pass-2026-10-15: forces the Actions workflow to deploy
+// the current main (password-compat fix) to production. Removed in the follow-up
+// security-hardening commit. No behavior change.
+
 interface Env {
   DATABASE_URL: string;
   RESOURCE_FILES: R2Bucket;
