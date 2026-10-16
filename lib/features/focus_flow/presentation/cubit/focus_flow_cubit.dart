@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:bloc/bloc.dart';
@@ -8,6 +9,7 @@ import '../../../commitment/domain/commitment.dart';
 import '../../../todo/data/model/todo_hive_model.dart';
 import '../../../todo/domain/entities/todo.dart';
 import '../../data/focus_store.dart';
+import '../../data/lockscreen_sync.dart';
 import '../../domain/entities/focus_task.dart';
 import '../../domain/micro_step_generator.dart';
 import 'focus_flow_state.dart';
@@ -34,6 +36,14 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       trustKept: trust.kept,
       trustTotal: trust.kept + trust.paused,
       pauseSummary: FocusStore.mostCommonPauseReason(),
+    ));
+    // Keep the lock screen showing the current "Start here" task.
+    // Every mutation (complete, skip, triage, pick, breather) funnels
+    // through load(), so one hook here keeps the widget in sync.
+    final current = queue.isEmpty ? null : queue.first;
+    unawaited(LockScreenSync.syncCurrentTask(
+      title: current?.title,
+      key: current?.key,
     ));
   }
 

@@ -2,13 +2,20 @@ import Flutter
 import UIKit
 import UserNotifications
 import AVFoundation
+import WidgetKit
 #if canImport(AppIntents)
 import AppIntents
 #endif
 
+/// App Group shared with the lock-screen widget extension.
+private let lockScreenAppGroup = "group.com.naylahknee.resourcememory"
+private let lockScreenTaskFile = "current_task.json"
+private let pendingFocusLinkKey = "resource_memory_pending_focus_link"
+
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private let voiceChannelName = "com.naylahknee.nanynany/phone"
+  private let lockScreenChannelName = "com.naylahknee.nanynany/lockscreen"
   private let synthesizer = AVSpeechSynthesizer()
 
   override func application(
@@ -76,7 +83,74 @@ import AppIntents
       }
     }
 
+    let lockScreenChannel = FlutterMethodChannel(
+      name: lockScreenChannelName,
+      binaryMessenger: controller.binaryMessenger
+    )
+
+    lockScreenChannel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "syncCurrentTask":
+        let args = call.arguments as? [String: Any]
+        let title = args?["title"] as? String ?? ""
+        let key = args?["key"] as? String ?? ""
+        Self.writeLockScreenTask(title: title, key: key)
+        if #available(iOS 14.0, *) {
+          WidgetCenter.shared.reloadAllTimelines()
+        }
+        result(nil)
+      case "clearCurrentTask":
+        Self.clearLockScreenTask()
+        if #available(iOS 14.0, *) {
+          WidgetCenter.shared.reloadAllTimelines()
+        }
+        result(nil)
+      case "getPendingFocusLink":
+        let defaults = UserDefaults.standard
+        let value = defaults.string(forKey: pendingFocusLinkKey)
+        if value != nil {
+          defaults.removeObject(forKey: pendingFocusLinkKey)
+        }
+        result(value)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  /// Lock-screen widget tap lands here as resourcememory://focus.
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    if url.scheme == "resourcememory" {
+      UserDefaults.standard.set("focus", forKey: pendingFocusLinkKey)
+      return true
+    }
+    return super.application(app, open: url, options: options)
+  }
+
+  // MARK: - Lock-screen widget file bridge
+
+  private static func lockScreenTaskURL() -> URL? {
+    FileManager.default
+      .containerURL(forSecurityApplicationGroupIdentifier: lockScreenAppGroup)?
+      .appendingPathComponent(lockScreenTaskFile)
+  }
+
+  private static func writeLockScreenTask(title: String, key: String) {
+    guard let url = lockScreenTaskURL() else { return }
+    let payload: [String: String] = ["title": title, "key": key]
+    guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
+    try? data.write(to: url, options: .atomic)
+  }
+
+  private static func clearLockScreenTask() {
+    guard let url = lockScreenTaskURL() else { return }
+    try? FileManager.default.removeItem(at: url)
   }
 
   private func requestNotificationPermission(result: @escaping FlutterResult) {

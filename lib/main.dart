@@ -7,6 +7,7 @@ import 'package:resource_memory/app/routing/go_router.dart';
 import 'package:resource_memory/app/theme/app_theme.dart';
 import 'package:resource_memory/features/commitment/data/commitment_store.dart';
 import 'package:resource_memory/features/focus_flow/data/focus_store.dart';
+import 'package:resource_memory/features/focus_flow/data/lockscreen_sync.dart';
 import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
 import 'package:resource_memory/features/resource/data/cloud_sync_service.dart';
 import 'package:resource_memory/features/resource/data/incoming_share_service.dart';
@@ -41,7 +42,20 @@ class _ResourceMemoryAppState extends State<ResourceMemoryApp> {
   void initState() {
     super.initState();
     _listenForShares();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _handlePhoneShortcut());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handlePhoneShortcut();
+      _handleFocusLink();
+    });
+  }
+
+  /// Lock-screen widget / notification tap: opens the app on the Act side
+  /// ("Start here" task) via the resourcememory://focus deep link.
+  Future<void> _handleFocusLink() async {
+    try {
+      final opened = await LockScreenSync.consumePendingFocusLink();
+      if (!mounted || !opened) return;
+      goRouter.go('/focus');
+    } catch (_) {}
   }
 
   Future<void> _handlePhoneShortcut() async {
