@@ -16,7 +16,10 @@ class LockScreenSync {
 
   /// Pushes the current "Start here" task to the lock screen.
   /// A null or blank title clears the lock screen instead.
-  static Future<void> syncCurrentTask({String? title, String? key}) async {
+  /// [dueAtMs] is the task's due time in epoch milliseconds; the lock screen
+  /// shows it in 24-hour military time when present.
+  static Future<void> syncCurrentTask(
+      {String? title, String? key, int? dueAtMs}) async {
     try {
       final trimmed = title?.trim() ?? '';
       if (trimmed.isEmpty) {
@@ -25,6 +28,7 @@ class LockScreenSync {
         await _channel.invokeMethod<void>('syncCurrentTask', {
           'title': trimmed,
           'key': key ?? '',
+          'dueAtMs': dueAtMs,
         });
       }
     } catch (_) {

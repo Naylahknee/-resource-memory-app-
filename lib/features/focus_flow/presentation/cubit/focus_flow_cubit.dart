@@ -44,6 +44,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     unawaited(LockScreenSync.syncCurrentTask(
       title: current?.title,
       key: current?.key,
+      dueAtMs: current?.dueAt?.millisecondsSinceEpoch,
     ));
   }
 

@@ -36,8 +36,9 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "syncCurrentTask" -> {
                     val title = call.argument<String>("title").orEmpty().trim()
+                    val dueAtMs = call.argument<Number>("dueAtMs")?.toLong()
                     if (title.isEmpty()) clearTaskNotification()
-                    else showTaskNotification(title)
+                    else showTaskNotification(title, dueAtMs)
                     result.success(null)
                 }
                 "clearCurrentTask" -> {
@@ -62,7 +63,7 @@ class MainActivity : FlutterActivity() {
         if (intent.data?.scheme == "resourcememory") pendingFocusLink = true
     }
 
-    private fun showTaskNotification(title: String) {
+    private fun showTaskNotification(title: String, dueAtMs: Long?) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
@@ -83,9 +84,10 @@ class MainActivity : FlutterActivity() {
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val timeSuffix = dueAtMs?.let { " · ${militaryTime(it)}" } ?: ""
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Start here")
+            .setContentTitle("Start here$timeSuffix")
             .setContentText(title)
             .setStyle(NotificationCompat.BigTextStyle().bigText(title))
             .setOngoing(true)
@@ -97,6 +99,13 @@ class MainActivity : FlutterActivity() {
         runCatching {
             NotificationManagerCompat.from(this).notify(notificationId, notification)
         }
+    }
+
+    /** 24-hour military time, e.g. 14:30. */
+    private fun militaryTime(epochMs: Long): String {
+        val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
+        sdf.timeZone = java.util.TimeZone.getDefault()
+        return sdf.format(java.util.Date(epochMs))
     }
 
     private fun clearTaskNotification() {

@@ -94,7 +94,8 @@ private let pendingFocusLinkKey = "resource_memory_pending_focus_link"
         let args = call.arguments as? [String: Any]
         let title = args?["title"] as? String ?? ""
         let key = args?["key"] as? String ?? ""
-        Self.writeLockScreenTask(title: title, key: key)
+        let dueAtMs = (args?["dueAtMs"] as? NSNumber)?.int64Value
+        Self.writeLockScreenTask(title: title, key: key, dueAtMs: dueAtMs)
         if #available(iOS 14.0, *) {
           WidgetCenter.shared.reloadAllTimelines()
         }
@@ -141,9 +142,10 @@ private let pendingFocusLinkKey = "resource_memory_pending_focus_link"
       .appendingPathComponent(lockScreenTaskFile)
   }
 
-  private static func writeLockScreenTask(title: String, key: String) {
+  private static func writeLockScreenTask(title: String, key: String, dueAtMs: Int64?) {
     guard let url = lockScreenTaskURL() else { return }
-    let payload: [String: String] = ["title": title, "key": key]
+    var payload: [String: Any] = ["title": title, "key": key]
+    if let dueAtMs = dueAtMs { payload["dueAtMs"] = dueAtMs }
     guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
     try? data.write(to: url, options: .atomic)
   }
