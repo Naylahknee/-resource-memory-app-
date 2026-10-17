@@ -1,26 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
+import 'package:resource_memory/app/theme/nany_tokens.dart';
 
-/// Todoist-style light palette for redesigned screens.
+/// Light palette for redesigned screens, now carrying the NanyNany design
+/// system values (see lib/app/theme/nany_tokens.dart).
 /// Local only; the global AppTheme stays dark. Each redesigned screen
 /// opts in by wrapping its Scaffold in [TodoistLightScope] and using
 /// these colors instead of AppColors.
+///
+/// The class keeps its old name so no screen has to change in this step.
 abstract final class TodoistLight {
   TodoistLight._();
 
-  static const canvas = Color(0xFFFDFCFA);
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceGray = Color(0xFFFAFAFA);
-  static const hairline = Color(0xFFEEEEEE);
-  static const ink = Color(0xFF202020);
-  static const secondary = Color(0xFF808080);
-  static const muted = Color(0xFFAAAAAA);
-  static const verb = Color(0xFFDC4C3E); // Todoist red: primary actions only.
-  static const verbTint = Color(0xFFFBE5E2); // Light red tint for active states.
-  static const verbMuted = Color(0xFFFBE5E2); // Alias for verbTint.
-  static const warm = Color(0xFFEB8909); // P2 orange: secondary warmth.
-  static const warmTint = Color(0xFFFEF3E2); // Light orange tint.
-  static const surfaceVariant = Color(0xFFFAFAFA); // Alias for surfaceGray.
+  static const canvas = NanyLight.bg; // Warm paper background.
+  static const surface = NanyLight.surface; // Cards and sheets.
+  static const surfaceGray = NanyLight.surfaceSunken;
+  static const hairline = NanyLight.line;
+  static const ink = NanyLight.ink;
+  static const secondary = NanyLight.inkMuted; // 6:1 on surface.
+  static const muted = Color(0xFF6F685E); // Hints and metadata, 5:1 on bg.
+  static const verb = NanyLight.brand; // NanyNany teal: primary actions only.
+  static const verbTint = NanyLight.stateConfirmedBg; // Light teal tint.
+  static const verbMuted = NanyLight.stateConfirmedBg; // Alias for verbTint.
+  static const warm = NanyLight.stateNowFg; // Rust: urgency, stuck, timers.
+  static const warmTint = NanyLight.stateNowBg; // Light rust tint.
+  static const surfaceVariant = NanyLight.surfaceSunken; // Alias.
 }
 
 /// Gives a screen light-theme text and component defaults so
