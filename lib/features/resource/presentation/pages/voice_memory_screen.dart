@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
@@ -11,7 +12,8 @@ import 'package:resource_memory/features/resource/data/voice_capture_service.dar
 import 'package:resource_memory/features/resource/domain/resource.dart';
 
 class VoiceMemoryScreen extends StatefulWidget {
-  const VoiceMemoryScreen({super.key});
+  const VoiceMemoryScreen({super.key, this.returnSavedResource = false});
+  final bool returnSavedResource;
 
   @override
   State<VoiceMemoryScreen> createState() => _VoiceMemoryScreenState();
@@ -148,6 +150,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
       }
 
       if (!mounted) return;
+      if (widget.returnSavedResource) { Navigator.of(context).pop(resource); return; }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -213,7 +216,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                       IconButton(
                         onPressed: _recording || _processing
                             ? null
-                            : () => Navigator.of(context).pop(),
+                            : () => context.canPop() ? context.pop() : context.go('/'),
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),
@@ -223,7 +226,7 @@ class _VoiceMemoryScreenState extends State<VoiceMemoryScreen> {
                     Text('Say it before you forget it.', style: AppTypography.h2),
                     const SizedBox(height: 8),
                     Text(
-                      'Record an idea or bring in an existing voice memo. Resource Memory will transcribe it, understand what matters, and make it searchable later.',
+                      'Record an idea or import a voice memo. Connect Sync devices for transcription and automatic understanding.',
                       style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                     ),
                     const SizedBox(height: 28),

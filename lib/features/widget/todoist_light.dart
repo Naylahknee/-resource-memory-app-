@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 
 /// Todoist-style light palette for redesigned screens.
-/// Local only; the global AppTheme stays dark. Each redesigned screen
-/// opts in by wrapping its Scaffold in [TodoistLightScope] and using
-/// these colors instead of AppColors.
+/// Shared warm-white theme for the existing NanyNany screens.
 abstract final class TodoistLight {
   TodoistLight._();
 
@@ -13,9 +11,9 @@ abstract final class TodoistLight {
   static const surfaceGray = Color(0xFFFAFAFA);
   static const hairline = Color(0xFFEEEEEE);
   static const ink = Color(0xFF202020);
-  static const secondary = Color(0xFF808080);
-  static const muted = Color(0xFFAAAAAA);
-  static const verb = Color(0xFFDC4C3E); // Todoist red: primary actions only.
+  static const secondary = Color(0xFF62615C);
+  static const muted = Color(0xFF77746F);
+  static const verb = Color(0xFFC83E32); // Todoist red: primary actions only.
   static const verbTint = Color(0xFFFBE5E2); // Light red tint for active states.
   static const verbMuted = Color(0xFFFBE5E2); // Alias for verbTint.
   static const warm = Color(0xFFEB8909); // P2 orange: secondary warmth.
@@ -30,11 +28,9 @@ class TodoistLightScope extends StatelessWidget {
   final Widget child;
   const TodoistLightScope({super.key, required this.child});
 
-  @override
-  Widget build(BuildContext context) {
-    final base = Theme.of(context);
-    return Theme(
-      data: base.copyWith(
+  static ThemeData themeFor(ThemeData base) => base.copyWith(
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(seedColor: TodoistLight.verb, brightness: Brightness.light, surface: TodoistLight.surface),
         scaffoldBackgroundColor: TodoistLight.canvas,
         textTheme: base.textTheme.apply(
           bodyColor: TodoistLight.ink,
@@ -58,16 +54,18 @@ class TodoistLightScope extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: TodoistLight.verb,
             foregroundColor: Colors.white,
+            minimumSize: const Size(48, 48),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
+            minimumSize: const Size(48, 48),
             foregroundColor: TodoistLight.ink,
             side: const BorderSide(color: TodoistLight.hairline),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(foregroundColor: TodoistLight.verb),
+          style: TextButton.styleFrom(foregroundColor: TodoistLight.verb, minimumSize: const Size(48, 48)),
         ),
         chipTheme: base.chipTheme.copyWith(
           backgroundColor: TodoistLight.surfaceGray,
@@ -123,8 +121,8 @@ class TodoistLightScope extends StatelessWidget {
           backgroundColor: TodoistLight.verb,
           foregroundColor: Colors.white,
         ),
-      ),
-      child: child,
-    );
-  }
+      );
+
+  @override
+  Widget build(BuildContext context) => Theme(data: themeFor(Theme.of(context)), child: child);
 }

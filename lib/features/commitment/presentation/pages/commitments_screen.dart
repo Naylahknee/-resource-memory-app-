@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:resource_memory/app/routing/app_route.dart';
 import 'package:resource_memory/features/widget/todoist_light.dart';
+import 'package:resource_memory/features/widget/memory_capture_sheet.dart';
+import 'package:resource_memory/features/widget/memory_mascot.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
 import 'package:resource_memory/features/commitment/data/commitment_store.dart';
 import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
@@ -46,11 +48,11 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
         backgroundColor: TodoistLight.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Remember'),
+        title: const Text('Reminders'),
         actions: [
           IconButton(
             tooltip: 'Spoken reminders',
-            onPressed: () => context.go('/${Routes.spokenReminderSettingsScreen}'),
+            onPressed: () => context.push('/${Routes.spokenReminderSettingsScreen}'),
             icon: const Icon(Icons.volume_up_outlined),
           ),
         ],
@@ -59,7 +61,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
           children: [
-            Text('What am I forgetting?', style: AppTypography.h2),
+            Text('What needs a nudge?', style: AppTypography.h2),
             const SizedBox(height: 6),
             Text(
               'Things that need your attention stay here until you handle them.',
@@ -208,9 +210,15 @@ class _EmptyState extends StatelessWidget {
       color: TodoistLight.surface,
       borderRadius: BorderRadius.circular(14),
     ),
-    child: Text(
-      'Nothing needs your attention right now.',
-      style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
-    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const MemoryMascot(mood: MemoryMood.reminder, size: 80),
+      const SizedBox(height: 12),
+      Text('No confirmed reminders yet.', style: AppTypography.h3),
+      const SizedBox(height: 8),
+      const Text('Save a time-sensitive memory. Review any suggested commitment before setting its reminder.'),
+      const SizedBox(height: 16),
+      FilledButton(onPressed: () => showMemoryCapture(context), child: const Text('Save something to remember')),
+      TextButton(onPressed: () => context.push('/welcome?tour=1'), child: const Text('Try a reminder preview')),
+    ]),
   );
 }
