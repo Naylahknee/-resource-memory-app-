@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:resource_memory/app/routing/app_route.dart';
+import 'package:resource_memory/app/theme/nany_tokens.dart';
 import 'package:resource_memory/features/resource/data/welcome_store.dart';
 
-/// First-launch welcome screen in Todoist style: warm white canvas,
-/// quiet typography, one red verb. Mascot waves hello below the headline,
+/// First-launch welcome screen: warm paper canvas,
+/// quiet typography, one teal verb. Mascot waves hello below the headline,
 /// swipe up to enter. One-way door: once dismissed it never shows again.
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -15,11 +16,11 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
-  // Todoist palette.
-  static const _canvas = Color(0xFFFDFCFA);
-  static const _ink = Color(0xFF202020);
-  static const _secondary = Color(0xFF808080);
-  static const _verb = Color(0xFFDC4C3E); // Todoist red: actions only.
+  // NanyNany palette (see nany_tokens.dart).
+  static const _canvas = NanyLight.bg;
+  static const _ink = NanyLight.ink;
+  static const _secondary = NanyLight.inkMuted;
+  static const _verb = NanyLight.brand; // NanyNany teal: actions only.
 
   // Drag state: 0 = resting, negative = dragged upward.
   double _dragOffset = 0;

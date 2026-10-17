@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Color palette for Resource Memory.
+/// Dark color palette for the screens that still use the global dark theme.
+/// Values come from the NanyNany design system (see nany_tokens.dart).
 abstract final class AppColors {
   AppColors._();
 
@@ -19,29 +20,29 @@ abstract final class AppColors {
   static Color kgrey = Colors.grey;
   static Color kPrimaryGrey = Color.fromARGB(255, 232, 232, 232);
 
-  static const Color background = Color(0xFF1A1A18);
+  static const Color background = Color(0xFF17161A); // NanyDark.bg
 
-  static const Color surface = Color(0xFF242420);
+  static const Color surface = Color(0xFF222127); // NanyDark.surface
 
-  static const Color surfaceVariant = Color(0xFF2E2E2A);
+  static const Color surfaceVariant = Color(0xFF2C2A30);
 
   // ─── Accent ───────────────────────────────────────────────────────────────
 
-  static const Color accent = Color(0xFFD4E157);
+  static const Color accent = Color(0xFF5FC2B9); // NanyDark.brand (teal)
 
-  static const Color accentMuted = Color(0xFF4A4A38);
+  static const Color accentMuted = Color(0xFF1C3533);
 
   static const Color noteCard = Color(0xFFE8ECC8);
 
   // ─── Text ─────────────────────────────────────────────────────────────────
 
-  static const Color textPrimary = Color(0xFFF0F0EC);
+  static const Color textPrimary = Color(0xFFF2EEE7);
 
-  static const Color textSecondary = Color(0xFFAAADA0);
+  static const Color textSecondary = Color(0xFFA8A198);
 
-  static const Color textMuted = Color(0xFF666860);
+  static const Color textMuted = Color(0xFF8F887F); // 4.6:1 on surface
 
-  static const Color textOnLight = Color(0xFF1A1A18);
+  static const Color textOnLight = Color(0xFF24211D);
 
   // ─── PIES brand accents ───────────────────────────────────────────────────
 

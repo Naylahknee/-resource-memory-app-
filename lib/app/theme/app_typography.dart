@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// A centralized typography system using Google Fonts — Poppins.
+/// A centralized typography system using Google Fonts — Atkinson Hyperlegible.
+///
+/// NanyNany design system: Atkinson Hyperlegible was designed for legibility
+/// (letters like I, l and 1 are easy to tell apart). It ships in 400 and 700
+/// only, so every style uses one of those two weights. Nothing renders below
+/// 12px; body text stays at 14px or more.
 
 abstract final class AppTypography {
   AppTypography._();
 
   // ─── Base ────────────────────────────────────────────────────────────────
 
-  static TextStyle _poppins({
+  static TextStyle _font({
     required double fontSize,
     required FontWeight fontWeight,
     double? height,
     double? letterSpacing,
-  }) => GoogleFonts.poppins(
+  }) => GoogleFonts.atkinsonHyperlegible(
     fontSize: fontSize,
     fontWeight: fontWeight,
     height: height ?? 1.4,
@@ -22,15 +27,15 @@ abstract final class AppTypography {
 
   // ─── Display ─────────────────────────────────────────────────────────────
 
-  static final TextStyle displayLg = _poppins(
+  static final TextStyle displayLg = _font(
     fontSize: 40,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w700,
     height: 1.15,
     letterSpacing: -0.5,
   );
 
   /// 32px · Bold — Section titles
-  static final TextStyle displayMd = _poppins(
+  static final TextStyle displayMd = _font(
     fontSize: 32,
     fontWeight: FontWeight.w700,
     height: 1.2,
@@ -40,75 +45,75 @@ abstract final class AppTypography {
   // ─── Headings ─────────────────────────────────────────────────────────────
 
   /// 28px · Bold
-  static final TextStyle h1 = _poppins(
+  static final TextStyle h1 = _font(
     fontSize: 28,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.2,
   );
 
-  /// 24px · SemiBold
-  static final TextStyle h2 = _poppins(
+  /// 24px · Bold
+  static final TextStyle h2 = _font(
     fontSize: 24,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
   );
 
-  static final TextStyle h3 = _poppins(
+  static final TextStyle h3 = _font(
     fontSize: 20,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
   );
 
-  static final TextStyle h4 = _poppins(
+  static final TextStyle h4 = _font(
     fontSize: 18,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w700,
   );
 
   // ─── Body ─────────────────────────────────────────────────────────────────
 
-  static final TextStyle bodyLg = _poppins(
+  static final TextStyle bodyLg = _font(
     fontSize: 16,
     fontWeight: FontWeight.w400,
     height: 1.6,
   );
 
   /// 14px · Regular — Secondary body text
-  static final TextStyle bodyMd = _poppins(
+  static final TextStyle bodyMd = _font(
     fontSize: 14,
     fontWeight: FontWeight.w400,
     height: 1.6,
   );
 
-  static final TextStyle bodySm = _poppins(
-    fontSize: 12,
+  static final TextStyle bodySm = _font(
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     height: 1.5,
   );
 
   // ─── Labels / UI ──────────────────────────────────────────────────────────
 
-  /// 14px · SemiBold — Buttons, tabs, nav
-  static final TextStyle labelLg = _poppins(
+  /// 14px · Bold — Buttons, tabs, nav
+  static final TextStyle labelLg = _font(
     fontSize: 14,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     letterSpacing: 0.1,
   );
 
-  /// 12px · Medium — Chips, badges, tags
-  static final TextStyle labelMd = _poppins(
-    fontSize: 12,
-    fontWeight: FontWeight.w500,
+  /// 13px · Bold — Chips, badges, tags
+  static final TextStyle labelMd = _font(
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
     letterSpacing: 0.2,
   );
 
-  static final TextStyle labelSm = _poppins(
-    fontSize: 10,
-    fontWeight: FontWeight.w500,
+  static final TextStyle labelSm = _font(
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
     letterSpacing: 0.4,
   );
 
   // ─── Caption ──────────────────────────────────────────────────────────────
 
-  static final TextStyle caption = _poppins(
-    fontSize: 11,
+  static final TextStyle caption = _font(
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     height: 1.4,
     letterSpacing: 0.2,
