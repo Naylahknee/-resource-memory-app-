@@ -61,7 +61,7 @@ class _SpokenReminderSettingsScreenState extends State<SpokenReminderSettingsScr
                 Text('Voice', style: AppTypography.h2),
                 const SizedBox(height: 6),
                 Text(
-                  'Resource Memory can say important reminders out loud instead of relying only on a notification.',
+                  'NanyNany can say important reminders out loud instead of relying only on a notification.',
                   style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
                 ),
                 const SizedBox(height: 24),

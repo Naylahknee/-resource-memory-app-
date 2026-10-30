@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
@@ -14,7 +15,9 @@ import 'package:resource_memory/features/resource/data/resource_store.dart';
 import 'package:resource_memory/features/resource/domain/resource.dart';
 
 class SaveResourceScreen extends StatefulWidget {
-  const SaveResourceScreen({super.key});
+  const SaveResourceScreen({super.key, this.returnSavedResource = false, this.imageFirst = false});
+  final bool returnSavedResource;
+  final bool imageFirst;
 
   @override
   State<SaveResourceScreen> createState() => _SaveResourceScreenState();
@@ -27,6 +30,12 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
   bool _dragging = false;
   bool _pasting = false;
   bool _understandingImage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.imageFirst) WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _saveScreenshot(); });
+  }
 
   Future<void> _saveUrl() async {
     final url = _urlController.text.trim();
@@ -53,6 +62,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
       );
       await ResourceStore.save(resource);
       if (!mounted) return;
+      if (widget.returnSavedResource) { Navigator.of(context).pop(resource); return; }
       _urlController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Saved ${resource.title}')),
@@ -257,6 +267,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
       }
     }
 
+    if (widget.returnSavedResource && mounted) { Navigator.of(context).pop(resource); return; }
     if (showConfirmation && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -311,7 +322,7 @@ class _SaveResourceScreenState extends State<SaveResourceScreen> {
                           children: [
                             Row(children: [
                               IconButton(
-                                onPressed: () => Navigator.of(context).pop(),
+                                onPressed: () => context.canPop() ? context.pop() : context.go('/'),
                                 icon: const Icon(Icons.arrow_back),
                               ),
                               const SizedBox(width: 4),

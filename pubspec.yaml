@@ -1,5 +1,5 @@
 name: resource_memory
-description: "Resource Memory — save useful coding resources and resurface them when they matter."
+description: "NanyNany — capture useful memories and bring them back when they matter."
 publish_to: "none"
 
 version: 1.0.0+1
@@ -56,3 +56,4 @@ flutter:
 
   assets:
     - assets/
+    - assets/fonts/

@@ -5,7 +5,7 @@ import 'package:resource_memory/features/commitment/domain/commitment.dart';
 class PhoneBridge {
   static const _channel = MethodChannel('com.naylahknee.nanynany/phone');
 
-  static bool get isIOS => defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   static Future<bool> requestNotificationPermission() async {
     if (!isIOS) return false;

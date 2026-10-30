@@ -15,7 +15,9 @@ import '../../cubit/focus_flow_state.dart';
 /// breaks it into ridiculously small steps, "Make it tiny"
 /// reframes it as just 2 minutes.
 class FocusSessionPanel extends StatelessWidget {
-  const FocusSessionPanel({super.key});
+  const FocusSessionPanel({super.key, this.onCapture, this.onSort});
+  final VoidCallback? onCapture;
+  final VoidCallback? onSort;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +32,7 @@ class FocusSessionPanel extends StatelessWidget {
           );
         }
         if (state.queue.isEmpty) {
-          return _EmptyQueue(inboxCount: state.inbox.length);
+          return _EmptyQueue(inboxCount: state.inbox.length, onCapture: onCapture, onSort: onSort);
         }
         final view = state.queue.first;
         final isStuck = state.stuckKey == view.key;
@@ -652,7 +654,9 @@ class _StuckBreakdown extends StatelessWidget {
 
 class _EmptyQueue extends StatelessWidget {
   final int inboxCount;
-  const _EmptyQueue({required this.inboxCount});
+  const _EmptyQueue({required this.inboxCount, this.onCapture, this.onSort});
+  final VoidCallback? onCapture;
+  final VoidCallback? onSort;
 
   @override
   Widget build(BuildContext context) {
@@ -664,15 +668,20 @@ class _EmptyQueue extends StatelessWidget {
           children: [
             const Icon(Icons.self_improvement_outlined, size: 56, color: TodoistLight.verb),
             const SizedBox(height: 16),
-            Text('All clear.', style: AppTypography.h2, textAlign: TextAlign.center),
+            Text('One thing at a time.', style: AppTypography.h2, textAlign: TextAlign.center),
             const SizedBox(height: 8),
             Text(
               inboxCount > 0
                   ? 'You have $inboxCount dumped item${inboxCount == 1 ? '' : 's'} waiting for a quick tag.'
-                  : 'Nothing in the queue. Dump what is on your mind and start here.',
+                  : 'Nothing queued yet. Capture what is on your mind, then choose one small thing.',
               style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 20),
+            if (inboxCount > 0 && onSort != null)
+              FilledButton(onPressed: onSort, child: const Text('Choose one thing'))
+            else if (onCapture != null)
+              FilledButton(onPressed: onCapture, child: const Text('Capture what’s on my mind')),
           ],
         ),
       ),
