@@ -44,7 +44,7 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
         backgroundColor: TodoistLight.canvas,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text('ACT'),
+        title: const Text('Focus'),
       ),
       body: SafeArea(
         child: Column(
@@ -61,21 +61,21 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
                   children: [
                     Expanded(
                       child: _SegPill(
-                        label: 'DUMP',
+                        label: 'Capture',
                         selected: _tab == 0,
                         onTap: () => setState(() => _tab = 0),
                       ),
                     ),
                     Expanded(
                       child: _SegPill(
-                        label: 'FOCUS',
+                        label: 'Focus',
                         selected: _tab == 1,
                         onTap: () => setState(() => _tab = 1),
                       ),
                     ),
                     Expanded(
                       child: _SegPill(
-                        label: 'SORT',
+                        label: 'Sort',
                         selected: _tab == 2,
                         onTap: () => setState(() => _tab = 2),
                       ),
@@ -90,7 +90,7 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
                 index: _tab,
                 children: [
                   const BrainDumpPanel(),
-                  const FocusSessionPanel(),
+                  FocusSessionPanel(onCapture: () => setState(() => _tab = 0), onSort: () => setState(() => _tab = 2)),
                   TriageGridPanel(
                     onStart: (task) {
                       final cubit = context.read<FocusFlowCubit>();
@@ -152,23 +152,16 @@ class _SegPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? TodoistLight.verb : Colors.transparent,
-          borderRadius: BorderRadius.circular(26),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: AppTypography.labelLg.copyWith(
-            color: selected ? Colors.white : TodoistLight.secondary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        backgroundColor: selected ? TodoistLight.verb : Colors.transparent,
+        foregroundColor: selected ? Colors.white : TodoistLight.secondary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
       ),
+      child: Text(label, style: AppTypography.labelLg.copyWith(
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
     );
   }
 }

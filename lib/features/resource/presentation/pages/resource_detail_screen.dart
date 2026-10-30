@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -143,11 +144,11 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   children: [
                     Row(children: [
                       IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => context.canPop() ? context.pop() : context.go('/'),
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const SizedBox(width: 4),
-                      Expanded(child: Text('Resource details', style: AppTypography.h3)),
+                      Expanded(child: Text('Memory details', style: AppTypography.h3)),
                       if (hasLink)
                         FilledButton.tonalIcon(
                           onPressed: () => ResourceLinkService.open(context, resource.url),
@@ -177,7 +178,7 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                       _field('Transcript', _transcript, lines: 8, hint: 'Voice transcript'),
                     _field('Why this is useful', _whyUseful, lines: 3),
                     _field('Use when', _useWhen, lines: 3),
-                    _field('Topics', _topics, hint: 'MVP, UI, Roblox'),
+                    _field('Topics', _topics, hint: 'Community, education, work'),
                     _field('Technologies', _technologies, hint: 'Flutter, Luau, Next.js'),
                     const SizedBox(height: 8),
                     SizedBox(

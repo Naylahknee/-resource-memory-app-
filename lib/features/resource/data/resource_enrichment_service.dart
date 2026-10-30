@@ -55,7 +55,7 @@ class ResourceEnrichmentService {
 
   static Future<ResourceDraft> enrich(String rawUrl) async {
     final uri = Uri.tryParse(rawUrl.trim());
-    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+    if (uri == null || !const ['http', 'https'].contains(uri.scheme) || uri.host.isEmpty) {
       throw const FormatException('Enter a valid http or https link.');
     }
 

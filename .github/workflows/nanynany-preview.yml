@@ -1,0 +1,40 @@
+name: NanyNany experience preview
+on:
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'assets/fonts/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/nanynany-preview.yml'
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter build web --release --base-href "/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nanynany-web-preview
+          path: build/web
+          if-no-files-found: error
+      - run: flutter test --reporter expanded
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nanynany-layout-review
+          path: build/experience-review
+          if-no-files-found: ignore

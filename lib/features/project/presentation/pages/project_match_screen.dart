@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:resource_memory/features/widget/todoist_light.dart';
 import 'package:resource_memory/app/theme/app_typography.dart';
@@ -67,14 +68,14 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
               children: [
                 Row(children: [
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => context.canPop() ? context.pop() : context.go('/'),
                     icon: const Icon(Icons.arrow_back),
                   ),
                   const SizedBox(width: 4),
-                  Text('Start a project', style: AppTypography.h3),
+                  Text('Find useful memories', style: AppTypography.h3),
                 ]),
                 const SizedBox(height: 20),
-                Text('What are you building?', style: AppTypography.h2),
+                Text('What are you working on?', style: AppTypography.h2),
                 const SizedBox(height: 8),
                 Text(
                   'Describe it normally. We’ll look through what you already saved.',
@@ -88,7 +89,7 @@ class _ProjectMatchScreenState extends State<ProjectMatchScreen> {
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _findMatches(),
                   decoration: InputDecoration(
-                    hintText: 'I’m building a Roblox inventory system in Luau.',
+                    hintText: 'I’m planning a community launch, or building a website.',
                     filled: true,
                     fillColor: TodoistLight.surface,
                     border: OutlineInputBorder(
