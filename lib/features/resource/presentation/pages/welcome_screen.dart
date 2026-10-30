@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:resource_memory/app/routing/app_route.dart';
+import 'package:resource_memory/app/theme/nany_tokens.dart';
 import 'package:resource_memory/features/commitment/data/phone_bridge.dart';
 import 'package:resource_memory/features/commitment/data/spoken_reminder_service.dart';
 import 'package:resource_memory/features/resource/data/resource_store.dart';
@@ -11,6 +13,9 @@ import 'package:resource_memory/features/widget/memory_capture_sheet.dart';
 import 'package:resource_memory/features/widget/memory_mascot.dart';
 import 'package:resource_memory/features/widget/todoist_light.dart';
 
+/// First-launch welcome screen: warm paper canvas,
+/// quiet typography, one teal verb. Mascot waves hello below the headline,
+/// swipe up to enter. One-way door: once dismissed it never shows again.
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key, this.isTour = false});
   final bool isTour;
@@ -18,6 +23,22 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
+  // NanyNany palette (see nany_tokens.dart).
+  static const _canvas = NanyLight.bg;
+  static const _ink = NanyLight.ink;
+  static const _secondary = NanyLight.inkMuted;
+  static const _verb = NanyLight.brand; // NanyNany teal: actions only.
+
+  // Drag state: 0 = resting, negative = dragged upward.
+  double _dragOffset = 0;
+  double _opacity = 1;
+  bool _leaving = false;
+
+  late final AnimationController _hintController;
+  late final AnimationController _exitController;
+  late final AnimationController _waveController;
 class _WelcomeScreenState extends State<WelcomeScreen> {
   late int _step;
   Resource? _memory;
