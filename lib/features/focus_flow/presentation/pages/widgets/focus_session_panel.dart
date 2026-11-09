@@ -532,6 +532,8 @@ class _StuckBreakdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Local copy so the null check below promotes the type.
+    final reason = this.reason;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
