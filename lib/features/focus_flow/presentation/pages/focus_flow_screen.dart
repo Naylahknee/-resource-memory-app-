@@ -90,7 +90,10 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
                 index: _tab,
                 children: [
                   const BrainDumpPanel(),
-                  FocusSessionPanel(onCapture: () => setState(() => _tab = 0), onSort: () => setState(() => _tab = 2)),
+                  FocusSessionPanel(
+                      visible: _tab == 1,
+                      onCapture: () => setState(() => _tab = 0),
+                      onSort: () => setState(() => _tab = 2)),
                   TriageGridPanel(
                     onStart: (task) {
                       final cubit = context.read<FocusFlowCubit>();

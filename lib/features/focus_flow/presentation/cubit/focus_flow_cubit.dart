@@ -23,7 +23,23 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final lowCapacity = FocusStore.isLowCapacity;
     final badDay = FocusStore.isBadDay;
-    final queue = await _buildQueue(lowCapacity: lowCapacity, badDay: badDay);
+    // Waiting mode: a past appointment is done, so the normal queue
+    // returns and the appointment clears itself.
+    var waitingAppointment = FocusStore.waitingAppointment;
+    if (waitingAppointment != null &&
+        waitingAppointment.isBefore(DateTime.now())) {
+      FocusStore.clearWaitingAppointment();
+      waitingAppointment = null;
+    }
+    final waitingWindowMinutes = FocusStore.waitingWindowMinutes;
+    final waitingActive = waitingAppointment != null &&
+        !DateTime.now().isBefore(waitingAppointment
+            .subtract(Duration(minutes: waitingWindowMinutes)));
+    final queue = await _buildQueue(
+      lowCapacity: lowCapacity,
+      badDay: badDay,
+      waitingActive: waitingActive,
+    );
     final trust = FocusStore.trustThisWeek();
     emit(state.copyWith(
       inbox: inbox,
@@ -31,6 +47,10 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       doneToday: FocusStore.completionsToday(),
       lowCapacity: lowCapacity,
       badDay: badDay,
+      waitingAppointment: waitingAppointment,
+      clearWaitingAppointment: waitingAppointment == null,
+      waitingWindowMinutes: waitingWindowMinutes,
+      waitingActive: waitingActive,
       trustKept: trust.kept,
       trustTotal: trust.kept + trust.paused,
       pauseSummary: FocusStore.mostCommonPauseReason(),
@@ -96,9 +116,15 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     }
     FocusStore.logCompletion(key);
     FocusStore.logKept();
+    FocusStore.clearFocusTime(key);
     final microSteps = Map<String, List<String>>.from(state.microSteps)..remove(key);
     final checked = Map<String, Set<int>>.from(state.microStepsChecked)..remove(key);
-    emit(state.copyWith(clearStuckKey: true, clearTinyKey: true, microSteps: microSteps, microStepsChecked: checked));
+    emit(state.copyWith(
+        clearStuckKey: true,
+        clearStuckReason: true,
+        clearTinyKey: true,
+        microSteps: microSteps,
+        microStepsChecked: checked));
     await load();
     // Buffer rule: a breather screen shows before the next task is revealed.
     emit(state.copyWith(showBreather: true));
@@ -145,7 +171,8 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       FocusStore.bumpExternal(key);
     }
     FocusStore.logPaused();
-    emit(state.copyWith(clearStuckKey: true, clearTinyKey: true));
+    emit(state.copyWith(
+        clearStuckKey: true, clearStuckReason: true, clearTinyKey: true));
     await load();
   }
 
@@ -218,6 +245,28 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     await load();
   }
 
+  // ── Waiting mode ────────────────────────────────────────────
+  //
+  // The appointment is set by hand on the Act side. In the window
+  // before it, only tiny low-stakes steps stay in the queue.
+
+  /// Sets the appointment (and the window that kicks waiting mode in
+  /// before it). A time in the past is ignored: it is already over.
+  Future<void> setWaitingAppointment(
+    DateTime appointment, {
+    int windowMinutes = 120,
+  }) async {
+    if (appointment.isBefore(DateTime.now())) return;
+    FocusStore.setWaitingAppointment(appointment,
+        windowMinutes: windowMinutes);
+    await load();
+  }
+
+  Future<void> clearWaitingAppointment() async {
+    FocusStore.clearWaitingAppointment();
+    await load();
+  }
+
   // ── "Make it tiny" 2-minute reframe ───────────────────────────
 
   void openTiny(String key) => emit(state.copyWith(tinyKey: key));
@@ -226,24 +275,45 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
 
   // ── "I'm stuck" breakdown ───────────────────────────────────
 
-  void openStuck(String key) {
+  /// Opens the breakdown without a reason: the keyword-based steps run.
+  void openStuck(String key) => _openStuck(key, reason: null);
+
+  /// Opens the breakdown with a stuck reason: the reason picks the
+  /// branch the steps come from. The reason is also logged for her
+  /// own pattern-spotting, exactly like a "Not now" reason.
+  void openStuckWithReason(String key, String reasonLabel) {
+    FocusStore.logPauseReason(_viewFor(key)?.title ?? key, reasonLabel);
+    _openStuck(key, reason: stuckReasonFromLabel(reasonLabel));
+  }
+
+  void _openStuck(String key, {StuckReason? reason}) {
+    final view = _viewFor(key);
+    if (view == null) return;
     final microSteps = Map<String, List<String>>.from(state.microSteps);
     final checked = Map<String, Set<int>>.from(state.microStepsChecked);
-    if (!microSteps.containsKey(key)) {
-      final view = _viewFor(key);
-      if (view == null) return;
+    // Regenerate when there are no steps yet, or when the picked reason
+    // changed since the steps were made.
+    final needsRegen =
+        !microSteps.containsKey(key) || (reason != null && reason != state.stuckReason);
+    if (needsRegen) {
       // On a low-capacity day the breakdown starts gentle.
       final spiciness = state.lowCapacity ? StepSpiciness.gentle : StepSpiciness.medium;
-      final steps = view.microSteps.isNotEmpty
-          ? view.microSteps
-          : generateMicroSteps(view.title, spiciness: spiciness);
+      // A reason always generates fresh steps; without one, persisted
+      // steps from an earlier breakdown are reused.
+      final generatedFresh = reason != null || view.microSteps.isEmpty;
+      final steps = generatedFresh
+          ? generateMicroSteps(view.title, spiciness: spiciness, reason: reason)
+          : view.microSteps;
       microSteps[key] = steps;
-      checked[key] = {
-        for (int i = 0; i < view.microStepsDone.length; i++)
-          if (view.microStepsDone[i]) i,
-      };
-      // Persist generated steps on native tasks so they survive restarts.
-      if (view.nativeId != null && view.microSteps.isEmpty) {
+      // Fresh steps start unchecked; reused steps keep their checks.
+      checked[key] = generatedFresh
+          ? {}
+          : {
+              for (int i = 0; i < view.microStepsDone.length; i++)
+                if (view.microStepsDone[i]) i,
+            };
+      // Persist the breakdown on native tasks so it survives restarts.
+      if (view.nativeId != null) {
         final tasks = FocusStore.getAll();
         for (final t in tasks) {
           if (t.id == view.nativeId) {
@@ -257,20 +327,28 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       }
       emit(state.copyWith(
         stuckKey: key,
+        stuckReason: reason,
         microSteps: microSteps,
         microStepsChecked: checked,
         stuckSpiciness: spiciness,
       ));
     } else {
-      emit(state.copyWith(stuckKey: key, microSteps: microSteps, microStepsChecked: checked));
+      emit(state.copyWith(
+        stuckKey: key,
+        stuckReason: reason,
+        microSteps: microSteps,
+        microStepsChecked: checked,
+      ));
     }
   }
 
   /// Regenerates the breakdown at a new granularity ("Gentle" to "Spicy").
+  /// The picked stuck reason, if any, still picks the branch.
   void setStuckSpiciness(String key, StepSpiciness spiciness) {
     final view = _viewFor(key);
     if (view == null) return;
-    final steps = generateMicroSteps(view.title, spiciness: spiciness);
+    final steps = generateMicroSteps(view.title,
+        spiciness: spiciness, reason: state.stuckReason);
     final microSteps = Map<String, List<String>>.from(state.microSteps)..[key] = steps;
     final checked = Map<String, Set<int>>.from(state.microStepsChecked)..[key] = {};
     if (view.nativeId != null) {
@@ -293,14 +371,8 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     ));
   }
 
-  void closeStuck() => emit(state.copyWith(clearStuckKey: true));
-
-  /// "I'm stuck" with a pause reason: logs the reason for her own
-  /// pattern-spotting, then opens the breakdown as usual.
-  void openStuckWithReason(String key, String reason) {
-    FocusStore.logPauseReason(_viewFor(key)?.title ?? key, reason);
-    openStuck(key);
-  }
+  void closeStuck() =>
+      emit(state.copyWith(clearStuckKey: true, clearStuckReason: true));
 
   Future<void> toggleMicroStep(String key, int index) async {
     final checked = Map<String, Set<int>>.from(state.microStepsChecked);
@@ -338,7 +410,11 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
 
   // ── Queue building ──────────────────────────────────────────
 
-  Future<List<FocusTaskView>> _buildQueue({bool lowCapacity = false, bool badDay = false}) async {
+  Future<List<FocusTaskView>> _buildQueue({
+    bool lowCapacity = false,
+    bool badDay = false,
+    bool waitingActive = false,
+  }) async {
     final views = <FocusTaskView>[];
     final resolved = FocusStore.resolvedExternal.toSet();
     final now = DateTime.now();
@@ -406,6 +482,12 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
     } catch (_) {}
 
     views.sort(_compareViews);
+    // Waiting mode: big tasks stay out of the queue. Only tiny,
+    // low-stakes steps are offered until the appointment passes.
+    if (waitingActive) {
+      views.removeWhere((v) =>
+          v.energy != EnergyLevel.low && v.urgency != Urgency.later);
+    }
     // Rough day: only the single most important task stays visible.
     // Takes precedence over low-capacity mode.
     if (badDay) {

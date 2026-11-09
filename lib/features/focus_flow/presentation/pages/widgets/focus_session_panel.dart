@@ -9,15 +9,22 @@ import '../../../domain/entities/focus_task.dart';
 import '../../../domain/micro_step_generator.dart';
 import '../../cubit/focus_flow_cubit.dart';
 import '../../cubit/focus_flow_state.dart';
+import 'focus_timer.dart';
+import 'waiting_mode_card.dart';
 
 /// Focus session: exactly ONE task visible. "Start here."
-/// Big DONE, "Not now" snoozes it for ~2 hours, "I'm stuck"
-/// breaks it into ridiculously small steps, "Make it tiny"
-/// reframes it as just 2 minutes.
+/// Big DONE, "Not now" snoozes it for ~2 hours, "I'm stuck" asks why and
+/// breaks it into small steps for that reason, "Make it tiny" starts the
+/// focus timer with a 2-minute start. The timer counts only time on the
+/// task; time away is banked separately and never counted as focus.
 class FocusSessionPanel extends StatelessWidget {
-  const FocusSessionPanel({super.key, this.onCapture, this.onSort});
+  const FocusSessionPanel({super.key, this.onCapture, this.onSort, this.visible = true});
   final VoidCallback? onCapture;
   final VoidCallback? onSort;
+
+  /// False while the user is on another Act tab (Capture/Sort): the
+  /// focus timer banks that time as away instead of counting it.
+  final bool visible;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +39,22 @@ class FocusSessionPanel extends StatelessWidget {
           );
         }
         if (state.queue.isEmpty) {
-          return _EmptyQueue(inboxCount: state.inbox.length, onCapture: onCapture, onSort: onSort);
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+            children: [
+              WaitingModeCard(
+                appointment: state.waitingAppointment,
+                windowMinutes: state.waitingWindowMinutes,
+                active: state.waitingActive,
+              ),
+              _EmptyQueue(
+                inboxCount: state.inbox.length,
+                onCapture: onCapture,
+                onSort: onSort,
+                waitingActive: state.waitingActive,
+              ),
+            ],
+          );
         }
         final view = state.queue.first;
         final isStuck = state.stuckKey == view.key;
@@ -45,6 +67,12 @@ class FocusSessionPanel extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
           children: [
+            WaitingModeCard(
+              appointment: state.waitingAppointment,
+              windowMinutes: state.waitingWindowMinutes,
+              active: state.waitingActive,
+            ),
+            const SizedBox(height: 12),
             _StatsRow(doneToday: state.doneToday, remaining: state.queue.length),
             const SizedBox(height: 12),
             _LowCapacityToggle(
@@ -69,6 +97,13 @@ class FocusSessionPanel extends StatelessWidget {
                       ? 'Just one small thing. That counts.'
                       : 'One thing. Not the list. This one.',
               style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
+            ),
+            const SizedBox(height: 16),
+            FocusTimerCard(
+              key: ValueKey('timer:${view.key}'),
+              taskKey: view.key,
+              twoMinuteGoal: isTiny,
+              visible: visible,
             ),
             const SizedBox(height: 16),
             Container(
@@ -108,13 +143,6 @@ class FocusSessionPanel extends StatelessWidget {
                     Text(
                       'Skipped ${view.skippedCount}×. No judgment, still here.',
                       style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
-                    ),
-                  ],
-                  if (isTiny) ...[
-                    const SizedBox(height: 16),
-                    _TinyBanner(
-                      title: view.title,
-                      onDismiss: () => cubit.closeTiny(),
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -164,7 +192,7 @@ class FocusSessionPanel extends StatelessWidget {
                               cubit.closeStuck();
                               return;
                             }
-                            final reason = await _showPauseReasonDialog(context);
+                            final reason = await _showStuckReasonDialog(context);
                             if (reason == null || !context.mounted) return;
                             if (reason.isEmpty) {
                               cubit.openStuck(view.key);
@@ -227,8 +255,11 @@ class FocusSessionPanel extends StatelessWidget {
                       steps: steps,
                       checked: checked,
                       spiciness: state.stuckSpiciness,
+                      reason: state.stuckReason,
                       onToggle: (i) => cubit.toggleMicroStep(view.key, i),
                       onSpicinessChanged: (s) => cubit.setStuckSpiciness(view.key, s),
+                      onParkIt: () => cubit.skip(view.key),
+                      onRestInstead: () => cubit.skip(view.key),
                     ),
                   ],
                 ],
@@ -417,60 +448,6 @@ Future<void> _showLogWinDialog(BuildContext context) async {
   }
 }
 
-class _TinyBanner extends StatelessWidget {
-  final String title;
-  final VoidCallback onDismiss;
-  const _TinyBanner({required this.title, required this.onDismiss});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: TodoistLight.warm.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: TodoistLight.warm.withValues(alpha: .45)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.timer_outlined, color: TodoistLight.warm, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Just do 2 minutes of:',
-                  style: AppTypography.labelMd.copyWith(
-                    color: TodoistLight.warm,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(title, style: AppTypography.bodyLg),
-                const SizedBox(height: 4),
-                Text(
-                  'Two minutes counts. You can stop after.',
-                  style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Dismiss',
-            icon: const Icon(Icons.close, size: 18),
-            color: TodoistLight.secondary,
-            onPressed: onDismiss,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StatsRow extends StatelessWidget {
   final int doneToday;
   final int remaining;
@@ -537,14 +514,20 @@ class _StuckBreakdown extends StatelessWidget {
   final List<String> steps;
   final Set<int> checked;
   final StepSpiciness spiciness;
+  final StuckReason? reason;
   final void Function(int) onToggle;
   final void Function(StepSpiciness) onSpicinessChanged;
+  final VoidCallback onParkIt;
+  final VoidCallback onRestInstead;
   const _StuckBreakdown({
     required this.steps,
     required this.checked,
     required this.spiciness,
+    required this.reason,
     required this.onToggle,
     required this.onSpicinessChanged,
+    required this.onParkIt,
+    required this.onRestInstead,
   });
 
   @override
@@ -563,6 +546,16 @@ class _StuckBreakdown extends StatelessWidget {
             'Okay. Forget the whole thing. Just do step one:',
             style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
           ),
+          if (reason != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Stuck because: ${reason.label}',
+              style: AppTypography.caption.copyWith(
+                color: TodoistLight.warm,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           for (int i = 0; i < steps.length; i++)
             InkWell(
@@ -593,6 +586,25 @@ class _StuckBreakdown extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 10),
+          if (reason == StuckReason.waitingOnSomeone) ...[
+            Center(
+              child: TextButton(
+                onPressed: onParkIt,
+                child: const Text(
+                    'Nothing can move. Park it and pick the next one.'),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          if (reason == StuckReason.noEnergy) ...[
+            Center(
+              child: TextButton(
+                onPressed: onRestInstead,
+                child: const Text('Rest instead. No guilt, it waits.'),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
           const Divider(height: 1),
           const SizedBox(height: 6),
           Text(
@@ -654,7 +666,12 @@ class _StuckBreakdown extends StatelessWidget {
 
 class _EmptyQueue extends StatelessWidget {
   final int inboxCount;
-  const _EmptyQueue({required this.inboxCount, this.onCapture, this.onSort});
+  final bool waitingActive;
+  const _EmptyQueue(
+      {required this.inboxCount,
+      this.onCapture,
+      this.onSort,
+      this.waitingActive = false});
   final VoidCallback? onCapture;
   final VoidCallback? onSort;
 
@@ -671,9 +688,11 @@ class _EmptyQueue extends StatelessWidget {
             Text('One thing at a time.', style: AppTypography.h2, textAlign: TextAlign.center),
             const SizedBox(height: 8),
             Text(
-              inboxCount > 0
-                  ? 'You have $inboxCount dumped item${inboxCount == 1 ? '' : 's'} waiting for a quick tag.'
-                  : 'Nothing queued yet. Capture what is on your mind, then choose one small thing.',
+              waitingActive
+                  ? 'Waiting mode is on. Only tiny steps until your appointment. The rest of the queue is waiting too.'
+                  : inboxCount > 0
+                      ? 'You have $inboxCount dumped item${inboxCount == 1 ? '' : 's'} waiting for a quick tag.'
+                      : 'Nothing queued yet. Capture what is on your mind, then choose one small thing.',
               style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
               textAlign: TextAlign.center,
             ),
@@ -855,6 +874,58 @@ Future<String?> _showPauseReasonDialog(BuildContext context) {
                       border: Border.all(color: TodoistLight.hairline),
                     ),
                     child: Text(reason, style: AppTypography.labelMd),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(''),
+          child: const Text('Just skip'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Stuck reasons: the five reasons from the plan. The picked reason
+/// chooses which branch the micro-steps come from.
+///
+/// Returns the picked reason label, '' to open the breakdown without a
+/// reason, or null if she dismissed the dialog (then nothing happens).
+Future<String?> _showStuckReasonDialog(BuildContext context) {
+  return showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('What is making this one stuck?', style: AppTypography.h4),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Just for you. No judgment, and this stays private.',
+            style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final reason in StuckReason.values)
+                InkWell(
+                  onTap: () =>
+                      Navigator.of(dialogContext).pop(reason.label),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: TodoistLight.surfaceVariant,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: TodoistLight.hairline),
+                    ),
+                    child: Text(reason.label, style: AppTypography.labelMd),
                   ),
                 ),
             ],

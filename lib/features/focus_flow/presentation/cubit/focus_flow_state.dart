@@ -24,6 +24,10 @@ class FocusFlowState extends Equatable {
   /// Granularity of the currently open "I'm stuck" breakdown.
   final StepSpiciness stuckSpiciness;
 
+  /// The reason picked in the "I'm stuck" menu for the open breakdown,
+  /// if any. The reason picks the branch the steps came from.
+  final StuckReason? stuckReason;
+
   /// Key of the task currently reframed as "just 2 minutes", if any.
   final String? tinyKey;
 
@@ -32,6 +36,16 @@ class FocusFlowState extends Equatable {
 
   /// Bad-day ("redo") mode: queue shrinks to the single most important task.
   final bool badDay;
+
+  /// Waiting mode: the appointment the user set by hand, if any.
+  final DateTime? waitingAppointment;
+
+  /// How many minutes before the appointment waiting mode kicks in.
+  final int waitingWindowMinutes;
+
+  /// True while the clock is inside the waiting window (from
+  /// appointment minus window, until the appointment time).
+  final bool waitingActive;
 
   /// Buffer rule: after a completion, show the breather screen
   /// before revealing the next task. Cleared by the timer or Skip.
@@ -55,9 +69,13 @@ class FocusFlowState extends Equatable {
     this.microSteps = const {},
     this.microStepsChecked = const {},
     this.stuckSpiciness = StepSpiciness.medium,
+    this.stuckReason,
     this.tinyKey,
     this.lowCapacity = false,
     this.badDay = false,
+    this.waitingAppointment,
+    this.waitingWindowMinutes = 120,
+    this.waitingActive = false,
     this.showBreather = false,
     this.trustKept = 0,
     this.trustTotal = 0,
@@ -91,10 +109,16 @@ class FocusFlowState extends Equatable {
     Map<String, List<String>>? microSteps,
     Map<String, Set<int>>? microStepsChecked,
     StepSpiciness? stuckSpiciness,
+    StuckReason? stuckReason,
+    bool clearStuckReason = false,
     String? tinyKey,
     bool clearTinyKey = false,
     bool? lowCapacity,
     bool? badDay,
+    DateTime? waitingAppointment,
+    bool clearWaitingAppointment = false,
+    int? waitingWindowMinutes,
+    bool? waitingActive,
     bool? showBreather,
     int? trustKept,
     int? trustTotal,
@@ -108,9 +132,16 @@ class FocusFlowState extends Equatable {
       microSteps: microSteps ?? this.microSteps,
       microStepsChecked: microStepsChecked ?? this.microStepsChecked,
       stuckSpiciness: stuckSpiciness ?? this.stuckSpiciness,
+      stuckReason:
+          clearStuckReason ? null : (stuckReason ?? this.stuckReason),
       tinyKey: clearTinyKey ? null : (tinyKey ?? this.tinyKey),
       lowCapacity: lowCapacity ?? this.lowCapacity,
       badDay: badDay ?? this.badDay,
+      waitingAppointment: clearWaitingAppointment
+          ? null
+          : (waitingAppointment ?? this.waitingAppointment),
+      waitingWindowMinutes: waitingWindowMinutes ?? this.waitingWindowMinutes,
+      waitingActive: waitingActive ?? this.waitingActive,
       showBreather: showBreather ?? this.showBreather,
       trustKept: trustKept ?? this.trustKept,
       trustTotal: trustTotal ?? this.trustTotal,
@@ -127,9 +158,13 @@ class FocusFlowState extends Equatable {
         microSteps,
         microStepsChecked,
         stuckSpiciness,
+        stuckReason,
         tinyKey,
         lowCapacity,
         badDay,
+        waitingAppointment,
+        waitingWindowMinutes,
+        waitingActive,
         showBreather,
         trustKept,
         trustTotal,

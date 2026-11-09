@@ -8,11 +8,98 @@ enum StepSpiciness {
   spicy,
 }
 
+/// Why the person is stuck. The reason picks the branch: the same task
+/// gets a different first step depending on what is blocking it.
+enum StuckReason {
+  dontKnowWhereToStart,
+  tooBig,
+  dreadingIt,
+  waitingOnSomeone,
+  noEnergy,
+}
+
+extension StuckReasonLabel on StuckReason {
+  String get label {
+    switch (this) {
+      case StuckReason.dontKnowWhereToStart:
+        return "Don't know where to start";
+      case StuckReason.tooBig:
+        return 'Feels too big';
+      case StuckReason.dreadingIt:
+        return 'Dreading it';
+      case StuckReason.waitingOnSomeone:
+        return 'Waiting on someone';
+      case StuckReason.noEnergy:
+        return 'No energy';
+    }
+  }
+}
+
+/// Parses a reason chip label back into a [StuckReason], or null when the
+/// label is not one of the five stuck reasons (e.g. a "Not now" pause
+/// reason, or "Just skip").
+StuckReason? stuckReasonFromLabel(String label) {
+  for (final reason in StuckReason.values) {
+    if (reason.label == label) return reason;
+  }
+  return null;
+}
+
 /// Generates ridiculously small micro-steps for the "I'm stuck" button.
 ///
 /// Pure local heuristics, no network. The goal is not accuracy, it is
 /// momentum: steps so small they feel silly to refuse.
-List<String> generateMicroSteps(String title, {StepSpiciness spiciness = StepSpiciness.medium}) {
+///
+/// When [reason] is given, the reason picks the branch first and the
+/// task-specific steps run inside that branch. Without a reason, the
+/// keyword-based breakdown runs as before.
+List<String> generateMicroSteps(
+  String title, {
+  StepSpiciness spiciness = StepSpiciness.medium,
+  StuckReason? reason,
+}) {
+  if (reason != null) {
+    switch (reason) {
+      case StuckReason.dontKnowWhereToStart:
+        // Name the very first physical action. One step only.
+        final base = generateMicroSteps(title, spiciness: StepSpiciness.gentle);
+        return [base.first];
+      case StuckReason.tooBig:
+        // Break it smaller: the tiniest steps, one tiny piece at a time.
+        return [
+          'Pick the smallest piece. Just that piece.',
+          ...generateMicroSteps(title, spiciness: StepSpiciness.spicy),
+        ];
+      case StuckReason.dreadingIt:
+        // A 2-minute start, with permission to do it badly.
+        return [
+          'Set a timer for 2 minutes.',
+          'Do it badly on purpose. Bad counts.',
+          'Stop after 2 minutes if you want. You started, that was the job.',
+        ];
+      case StuckReason.waitingOnSomeone:
+        // A small step that does not need them, or a nudge draft.
+        return [
+          'Do the one part that does not need them.',
+          'Draft the nudge: one line asking what you need from them.',
+          'Send it, or save it for later. Either moves it forward.',
+        ];
+      case StuckReason.noEnergy:
+        // The smallest possible step, or rest, with no guilt framing.
+        return [
+          'Do the smallest possible bit. One minute counts.',
+          'Or rest instead. Rest is allowed, and it is not falling behind.',
+        ];
+    }
+  }
+
+  return _generateKeywordSteps(title, spiciness: spiciness);
+}
+
+List<String> _generateKeywordSteps(
+  String title, {
+  StepSpiciness spiciness = StepSpiciness.medium,
+}) {
   final t = title.toLowerCase();
 
   bool any(List<String> words) => words.any((w) => t.contains(w));

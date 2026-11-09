@@ -23,6 +23,9 @@ class FocusStore {
   static const _keptKey = 'keptLog';
   static const _pausedKey = 'pausedLog';
   static const _pauseReasonsKey = 'pauseReasons';
+  static const _waitingAppointmentKey = 'waitingAppointment';
+  static const _waitingWindowKey = 'waitingWindowMinutes';
+  static const _focusTimeKey = 'focusTime';
 
   static Future<void> initialize() async {
     if (!Hive.isAdapterRegistered(3)) {
@@ -77,6 +80,77 @@ class FocusStore {
       (_meta.get(_badDayKey, defaultValue: false) as bool?) ?? false;
 
   static void setBadDay(bool value) => _meta.put(_badDayKey, value);
+
+  // ── Waiting mode ────────────────────────────────────────────
+  //
+  // The user sets an appointment time by hand (no calendar reading).
+  // In the window before it, only tiny low-stakes steps are offered.
+  // When the appointment time passes, the normal queue returns.
+
+  /// The appointment time, or null when waiting mode is not set.
+  static DateTime? get waitingAppointment {
+    final raw = _meta.get(_waitingAppointmentKey) as String?;
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  /// How many minutes before the appointment waiting mode kicks in.
+  /// Default 2 hours; the user can change it when setting the appointment.
+  static int get waitingWindowMinutes =>
+      (_meta.get(_waitingWindowKey, defaultValue: 120) as int?) ?? 120;
+
+  static void setWaitingAppointment(
+    DateTime appointment, {
+    int windowMinutes = 120,
+  }) {
+    _meta.put(_waitingAppointmentKey, appointment.toIso8601String());
+    _meta.put(_waitingWindowKey, windowMinutes);
+  }
+
+  static void clearWaitingAppointment() {
+    _meta.delete(_waitingAppointmentKey);
+    _meta.delete(_waitingWindowKey);
+  }
+
+  // ── Honest focus time ───────────────────────────────────────
+  //
+  // Per task key, stored as "focusSeconds|awaySeconds". Focus time only
+  // counts time actually spent on the task; time away (app left, tab
+  // switched) is tracked separately and never counted as focus.
+
+  static ({int focusSeconds, int awaySeconds}) focusTimeFor(String key) {
+    final map = Map<String, String>.from(
+      (_meta.get(_focusTimeKey, defaultValue: <String, String>{}) as Map?) ??
+          <String, String>{},
+    );
+    final raw = map[key];
+    if (raw == null) return (focusSeconds: 0, awaySeconds: 0);
+    final parts = raw.split('|');
+    return (
+      focusSeconds: int.tryParse(parts.first) ?? 0,
+      awaySeconds: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
+    );
+  }
+
+  static void saveFocusTime(String key, int focusSeconds, int awaySeconds) {
+    final map = Map<String, String>.from(
+      (_meta.get(_focusTimeKey, defaultValue: <String, String>{}) as Map?) ??
+          <String, String>{},
+    );
+    map[key] = '$focusSeconds|$awaySeconds';
+    _meta.put(_focusTimeKey, map);
+  }
+
+  /// Drops the stored time for a task (called when the task is done).
+  static void clearFocusTime(String key) {
+    final map = Map<String, String>.from(
+      (_meta.get(_focusTimeKey, defaultValue: <String, String>{}) as Map?) ??
+          <String, String>{},
+    );
+    if (map.remove(key) != null) {
+      _meta.put(_focusTimeKey, map);
+    }
+  }
 
   // ── Completions (simple log: task key + timestamp) ─────────────
 
