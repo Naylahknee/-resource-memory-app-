@@ -98,13 +98,15 @@ class FocusSessionPanel extends StatelessWidget {
                       : 'One thing. Not the list. This one.',
               style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
             ),
-            if (!badDay && !lowCapacity) ...[
-              const SizedBox(height: 2),
-              Text(
-                'App picks one, rest can wait.',
-                style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
-              ),
-            ],
+            const SizedBox(height: 2),
+            // The Act-side pitch line. Always visible, in every mode:
+            // gating it on the day modes hid it exactly when the
+            // browser check ran with rough-day mode on, so the live
+            // page showed the mode subtitle instead of this line.
+            Text(
+              'App picks one, rest can wait.',
+              style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
+            ),
             const SizedBox(height: 16),
             FocusTimerCard(
               key: ValueKey('timer:${view.key}'),

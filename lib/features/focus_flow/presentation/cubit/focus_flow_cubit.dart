@@ -42,6 +42,18 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       waitingActive: waitingActive,
     );
     final trust = FocusStore.trustThisWeek();
+    // Restore the latest auto-plan (persisted at dump time) so it
+    // survives a restart. Drops tasks that are done, deleted, or
+    // snoozed away; clears the stored plan when nothing is left.
+    final storedPlanIds = FocusStore.autoPlanIds;
+    final plan = _planFromIds(storedPlanIds);
+    if (plan.length != storedPlanIds.length) {
+      if (plan.isEmpty) {
+        FocusStore.clearAutoPlan();
+      } else {
+        FocusStore.setAutoPlanIds(plan.map((v) => v.nativeId!).toList());
+      }
+    }
     emit(state.copyWith(
       inbox: inbox,
       queue: queue,
@@ -55,8 +67,41 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       trustKept: trust.kept,
       trustTotal: trust.kept + trust.paused,
       pauseSummary: FocusStore.mostCommonPauseReason(),
+      autoPlan: plan,
     ));
   }
+
+  /// Builds plan views for stored task ids, in stored order, keeping
+  /// only tasks that are still actionable (not done, not snoozed away).
+  List<FocusTaskView> _planFromIds(List<int> ids) {
+    final now = DateTime.now();
+    final byId = {for (final t in FocusStore.getAll()) t.id: t};
+    final plan = <FocusTaskView>[];
+    for (final id in ids) {
+      final task = byId[id];
+      if (task == null || task.isCompleted) continue;
+      final resurface = task.resurfaceAt;
+      if (resurface != null && resurface.isAfter(now)) continue;
+      plan.add(_nativeView(task));
+    }
+    return plan;
+  }
+
+  /// The queue view for one stored native task.
+  FocusTaskView _nativeView(FocusTask task) => FocusTaskView(
+        key: 'focus:${task.id}',
+        title: task.title,
+        urgency: task.urgency,
+        energy: task.energy,
+        skippedCount: task.skippedCount,
+        lastBumpedAt: task.lastBumpedAt,
+        createdAt: task.createdAt,
+        microSteps: task.microSteps,
+        microStepsDone: task.microStepsDone,
+        nativeId: task.id,
+        cameBack: task.resurfaceAt != null &&
+            !task.resurfaceAt!.isAfter(DateTime.now()),
+      );
 
 
   FocusTaskView? _viewFor(String key) {
@@ -97,15 +142,22 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       }
     }
     await load();
-    // The plan is the dumped items in queue order, first one picked.
-    // Waiting mode, bad-day mode, or low-capacity mode can shrink the
-    // queue, so the plan only ever holds what is actually visible.
-    final plan = state.queue
-        .where((v) => v.nativeId != null && addedIds.contains(v.nativeId))
-        .toList();
-    if (plan.isNotEmpty) {
-      bringToFront(plan.first.key);
-      emit(state.copyWith(autoPlan: plan));
+    // The plan is the dumped items themselves, ordered the way the queue
+    // orders them — NOT the visible queue. Rough-day mode shrinks the
+    // queue to one item, low-capacity caps it at three, and waiting mode
+    // filters it, so filtering the queue for dumped items returned an
+    // empty plan in those modes and the dumped tasks were invisible
+    // everywhere (triaged, so not in the inbox; truncated out of the
+    // queue). The plan is persisted so it survives a restart.
+    final dumped = FocusStore.getAll()
+        .where((t) => addedIds.contains(t.id) && !t.isCompleted)
+        .map(_nativeView)
+        .toList()
+      ..sort(_compareViews);
+    if (dumped.isNotEmpty) {
+      FocusStore.setAutoPlanIds(dumped.map((v) => v.nativeId!).toList());
+      bringToFront(dumped.first.key);
+      emit(state.copyWith(autoPlan: dumped));
     }
   }
 
@@ -167,15 +219,51 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
   }
 
   /// Sends a queue item to the front so the Focus tab shows it next.
-  /// Used by the 4-box sort view. Order is recomputed on load anyway,
-  /// so nothing is persisted here.
+  /// Used by the 4-box sort view and by "Start the first one" on the
+  /// plan card. Order is recomputed on load anyway, so nothing is
+  /// persisted here.
+  ///
+  /// When the key is not in the visible queue — rough-day, low-capacity
+  /// or waiting mode can hide a task that is still in the store — the
+  /// view is built from the store and put first, so the Focus tab shows
+  /// the task the user just picked. The mode caps still apply, so the
+  /// queue never shows more than the mode allows.
   void bringToFront(String key) {
     final queue = List<FocusTaskView>.from(state.queue);
     final i = queue.indexWhere((v) => v.key == key);
-    if (i <= 0) return;
-    final item = queue.removeAt(i);
-    queue.insert(0, item);
-    emit(state.copyWith(queue: queue));
+    if (i > 0) {
+      final item = queue.removeAt(i);
+      queue.insert(0, item);
+      emit(state.copyWith(queue: queue));
+      return;
+    }
+    if (i == 0) return;
+    if (key.startsWith('focus:')) {
+      final id = int.tryParse(key.substring(6));
+      if (id == null) return;
+      final view = _viewForNativeId(id);
+      if (view == null) return;
+      queue.insert(0, view);
+      if (state.badDay && queue.length > 1) {
+        queue.removeRange(1, queue.length);
+      } else if (state.lowCapacity && queue.length > 3) {
+        queue.removeRange(3, queue.length);
+      }
+      emit(state.copyWith(queue: queue));
+    }
+  }
+
+  /// The view for a stored native task that is still actionable
+  /// (not done, not snoozed away), or null when it is not.
+  FocusTaskView? _viewForNativeId(int id) {
+    for (final t in FocusStore.getAll()) {
+      if (t.id != id) continue;
+      if (t.isCompleted) return null;
+      final resurface = t.resurfaceAt;
+      if (resurface != null && resurface.isAfter(DateTime.now())) return null;
+      return _nativeView(t);
+    }
+    return null;
   }
 
   /// "Not now": the task leaves the queue and comes back in about
@@ -454,19 +542,7 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
       // Snoozed with "Not now": hidden until the resurface time passes.
       final resurface = t.resurfaceAt;
       if (resurface != null && resurface.isAfter(now)) continue;
-      views.add(FocusTaskView(
-        key: 'focus:${t.id}',
-        title: t.title,
-        urgency: t.urgency,
-        energy: t.energy,
-        skippedCount: t.skippedCount,
-        lastBumpedAt: t.lastBumpedAt,
-        createdAt: t.createdAt,
-        microSteps: t.microSteps,
-        microStepsDone: t.microStepsDone,
-        nativeId: t.id,
-        cameBack: resurface != null && !resurface.isAfter(now),
-      ));
+      views.add(_nativeView(t));
     }
 
     for (final todo in await _readTodos()) {

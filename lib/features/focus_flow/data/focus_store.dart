@@ -26,6 +26,7 @@ class FocusStore {
   static const _waitingAppointmentKey = 'waitingAppointment';
   static const _waitingWindowKey = 'waitingWindowMinutes';
   static const _focusTimeKey = 'focusTime';
+  static const _autoPlanKey = 'autoPlan';
 
   static Future<void> initialize() async {
     if (!Hive.isAdapterRegistered(3)) {
@@ -65,6 +66,19 @@ class FocusStore {
   }
 
   static void delete(int id) => _tasks.delete(id);
+
+  // ── Latest auto-plan (dump → ordered plan) ────────────────────
+  //
+  /// Ids of the tasks in the latest auto-plan, in plan order.
+  /// Persisted so the plan survives a restart; load() rebuilds the
+  /// views from these ids and drops any that are done or gone.
+  static List<int> get autoPlanIds => List<int>.from(
+        (_meta.get(_autoPlanKey, defaultValue: <int>[]) as List?) ?? <int>[],
+      );
+
+  static void setAutoPlanIds(List<int> ids) => _meta.put(_autoPlanKey, ids);
+
+  static void clearAutoPlan() => _meta.delete(_autoPlanKey);
 
   // ── Low-capacity day mode ─────────────────────────────────────
 
