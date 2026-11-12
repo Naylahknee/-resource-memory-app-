@@ -10,9 +10,16 @@ enum StepSpiciness {
 
 /// Why the person is stuck. The reason picks the branch: the same task
 /// gets a different first step depending on what is blocking it.
+///
+/// The first four are the four stages of task paralysis, in plain words:
+/// Can't Start / Too Many Choices / Too Big / Not Urgent Yet. The last
+/// three are reasons that do not map cleanly onto a stage, so they stay
+/// as their own options instead of being dropped.
 enum StuckReason {
   dontKnowWhereToStart,
+  tooManyChoices,
   tooBig,
+  notUrgentYet,
   dreadingIt,
   waitingOnSomeone,
   noEnergy,
@@ -22,9 +29,13 @@ extension StuckReasonLabel on StuckReason {
   String get label {
     switch (this) {
       case StuckReason.dontKnowWhereToStart:
-        return "Don't know where to start";
+        return "Can't Start";
+      case StuckReason.tooManyChoices:
+        return 'Too Many Choices';
       case StuckReason.tooBig:
-        return 'Feels too big';
+        return 'Too Big';
+      case StuckReason.notUrgentYet:
+        return 'Not Urgent Yet';
       case StuckReason.dreadingIt:
         return 'Dreading it';
       case StuckReason.waitingOnSomeone:
@@ -36,7 +47,7 @@ extension StuckReasonLabel on StuckReason {
 }
 
 /// Parses a reason chip label back into a [StuckReason], or null when the
-/// label is not one of the five stuck reasons (e.g. a "Not now" pause
+/// label is not one of the stuck reasons (e.g. a "Not now" pause
 /// reason, or "Just skip").
 StuckReason? stuckReasonFromLabel(String label) {
   for (final reason in StuckReason.values) {
@@ -64,11 +75,25 @@ List<String> generateMicroSteps(
         // Name the very first physical action. One step only.
         final base = generateMicroSteps(title, spiciness: StepSpiciness.gentle);
         return [base.first];
+      case StuckReason.tooManyChoices:
+        // Too many ways to do it: pick one, the rest can wait.
+        return [
+          'Pick the first option. Any option. The rest can wait.',
+          'Do that one for 2 minutes. Bad counts.',
+          'Picked wrong? You still moved. Switch if you need to.',
+        ];
       case StuckReason.tooBig:
         // Break it smaller: the tiniest steps, one tiny piece at a time.
         return [
           'Pick the smallest piece. Just that piece.',
           ...generateMicroSteps(title, spiciness: StepSpiciness.spicy),
+        ];
+      case StuckReason.notUrgentYet:
+        // Not due yet: check whether it is, park it, or do the tiny version.
+        return [
+          'Check: is it actually due soon?',
+          'If not, park it. It can wait, and that is fine.',
+          'If it is due, do the 2-minute version now.',
         ];
       case StuckReason.dreadingIt:
         // A 2-minute start, with permission to do it badly.

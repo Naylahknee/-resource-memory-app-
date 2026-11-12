@@ -98,6 +98,13 @@ class FocusSessionPanel extends StatelessWidget {
                       : 'One thing. Not the list. This one.',
               style: AppTypography.bodyMd.copyWith(color: TodoistLight.secondary),
             ),
+            if (!badDay && !lowCapacity) ...[
+              const SizedBox(height: 2),
+              Text(
+                'App picks one, rest can wait.',
+                style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
+              ),
+            ],
             const SizedBox(height: 16),
             FocusTimerCard(
               key: ValueKey('timer:${view.key}'),
@@ -588,6 +595,15 @@ class _StuckBreakdown extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 10),
+          if (reason == StuckReason.notUrgentYet) ...[
+            Center(
+              child: TextButton(
+                onPressed: onParkIt,
+                child: const Text('Not due yet. Park it and pick the next one.'),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
           if (reason == StuckReason.waitingOnSomeone) ...[
             Center(
               child: TextButton(
@@ -892,8 +908,9 @@ Future<String?> _showPauseReasonDialog(BuildContext context) {
   );
 }
 
-/// Stuck reasons: the five reasons from the plan. The picked reason
-/// chooses which branch the micro-steps come from.
+/// Stuck reasons: the four stages of task paralysis first, then the
+/// reasons that do not map onto a stage. The picked reason chooses
+/// which branch the micro-steps come from.
 ///
 /// Returns the picked reason label, '' to open the breakdown without a
 /// reason, or null if she dismissed the dialog (then nothing happens).

@@ -61,6 +61,10 @@ class FocusFlowState extends Equatable {
   /// Most common recent pause reason, for the quiet "Why I pause" line.
   final String? pauseSummary;
 
+  /// The plan from the latest brain dump: the dumped items in queue
+  /// order, first one picked. Empty until the first dump.
+  final List<FocusTaskView> autoPlan;
+
   const FocusFlowState({
     this.inbox = const [],
     this.queue = const [],
@@ -80,6 +84,7 @@ class FocusFlowState extends Equatable {
     this.trustKept = 0,
     this.trustTotal = 0,
     this.pauseSummary,
+    this.autoPlan = const [],
   });
 
   FocusTaskView? get stuckTask {
@@ -123,6 +128,7 @@ class FocusFlowState extends Equatable {
     int? trustKept,
     int? trustTotal,
     String? pauseSummary,
+    List<FocusTaskView>? autoPlan,
   }) {
     return FocusFlowState(
       inbox: inbox ?? this.inbox,
@@ -146,6 +152,7 @@ class FocusFlowState extends Equatable {
       trustKept: trustKept ?? this.trustKept,
       trustTotal: trustTotal ?? this.trustTotal,
       pauseSummary: pauseSummary ?? this.pauseSummary,
+      autoPlan: autoPlan ?? this.autoPlan,
     );
   }
 
@@ -169,5 +176,6 @@ class FocusFlowState extends Equatable {
         trustKept,
         trustTotal,
         pauseSummary,
+        autoPlan,
       ];
 }

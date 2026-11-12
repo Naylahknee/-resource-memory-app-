@@ -89,7 +89,12 @@ class _FocusFlowViewState extends State<_FocusFlowView> {
               child: IndexedStack(
                 index: _tab,
                 children: [
-                  const BrainDumpPanel(),
+                  BrainDumpPanel(
+                    onStartPlan: (key) {
+                      context.read<FocusFlowCubit>().bringToFront(key);
+                      setState(() => _tab = 1);
+                    },
+                  ),
                   FocusSessionPanel(
                       visible: _tab == 1,
                       onCapture: () => setState(() => _tab = 0),

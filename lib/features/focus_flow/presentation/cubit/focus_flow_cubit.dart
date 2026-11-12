@@ -8,6 +8,7 @@ import '../../../commitment/domain/commitment.dart';
 import '../../../todo/data/model/todo_hive_model.dart';
 import '../../../todo/domain/entities/todo.dart';
 import '../../data/focus_store.dart';
+import '../../domain/auto_plan.dart';
 import '../../domain/entities/focus_task.dart';
 import '../../domain/micro_step_generator.dart';
 import 'focus_flow_state.dart';
@@ -67,16 +68,45 @@ class FocusFlowCubit extends Cubit<FocusFlowState> {
 
   // ── Brain dump ──────────────────────────────────────────────
 
+  /// Brain dump, then auto-plan: the dumped lines are ordered and the
+  /// first one is picked, so the Focus tab can show it right away.
+  /// Urgency comes from keywords in each line, energy defaults to
+  /// medium. Nothing is deleted: the two-tap triage still works for
+  /// anything left untriaged, and any item can be re-tagged by hand.
   Future<void> brainDump(String text) async {
     final lines = text
         .split('\n')
         .map((l) => l.trim().replaceAll(RegExp(r'^[-*•\d.)\s]+'), ''))
         .where((l) => l.isNotEmpty)
         .toList();
+    final addedIds = <int>[];
     for (final line in lines) {
-      FocusStore.add(line);
+      addedIds.add(FocusStore.add(line).id);
+    }
+    for (final id in addedIds) {
+      final tasks = FocusStore.getAll();
+      for (final t in tasks) {
+        if (t.id == id) {
+          FocusStore.update(t.copyWith(
+            urgency: urgencyForDumpedTitle(t.title),
+            energy: EnergyLevel.medium,
+            triaged: true,
+          ));
+          break;
+        }
+      }
     }
     await load();
+    // The plan is the dumped items in queue order, first one picked.
+    // Waiting mode, bad-day mode, or low-capacity mode can shrink the
+    // queue, so the plan only ever holds what is actually visible.
+    final plan = state.queue
+        .where((v) => v.nativeId != null && addedIds.contains(v.nativeId))
+        .toList();
+    if (plan.isNotEmpty) {
+      bringToFront(plan.first.key);
+      emit(state.copyWith(autoPlan: plan));
+    }
   }
 
   Future<void> triage(int id, Urgency urgency, EnergyLevel energy) async {

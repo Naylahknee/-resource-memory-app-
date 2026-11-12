@@ -9,9 +9,14 @@ import '../../cubit/focus_flow_cubit.dart';
 
 /// Brain dump: rapid capture of everything in your head, one per line.
 /// New items land in the triage inbox; two taps (urgency + energy) move
-/// each one into the focus queue.
+/// each one into the focus queue. After a dump, the app also makes a
+/// plan on its own: the dumped items ordered, first one picked.
 class BrainDumpPanel extends StatefulWidget {
-  const BrainDumpPanel({super.key});
+  const BrainDumpPanel({super.key, this.onStartPlan});
+
+  /// Called with the picked first task's key when the user taps
+  /// "Start the first one" on the auto-plan card.
+  final void Function(String key)? onStartPlan;
 
   @override
   State<BrainDumpPanel> createState() => _BrainDumpPanelState();
@@ -89,6 +94,7 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
   @override
   Widget build(BuildContext context) {
     final inbox = context.select((FocusFlowCubit c) => c.state.inbox);
+    final autoPlan = context.select((FocusFlowCubit c) => c.state.autoPlan);
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
       children: [
@@ -177,6 +183,46 @@ class _BrainDumpPanelState extends State<BrainDumpPanel> {
             ),
           ),
         ),
+        if (autoPlan.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          Text('Your plan', style: AppTypography.h4),
+          const SizedBox(height: 4),
+          Text(
+            'Ordered for you. Start with the first one.',
+            style: AppTypography.bodySm.copyWith(color: TodoistLight.secondary),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: TodoistLight.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: TodoistLight.hairline),
+            ),
+            child: Column(
+              children: [
+                for (int i = 0; i < autoPlan.length; i++)
+                  _PlanRow(index: i, task: autoPlan[i]),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => widget.onStartPlan?.call(autoPlan.first.key),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Start the first one'),
+              style: FilledButton.styleFrom(
+                backgroundColor: TodoistLight.verb,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: AppTypography.labelLg,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+        ],
         if (inbox.isNotEmpty) ...[
           const SizedBox(height: 28),
           Text('Quick tag: two taps each', style: AppTypography.h4),
@@ -273,6 +319,69 @@ class _TriageRowState extends State<_TriageRow> {
                     }),
                   ),
               ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One row of the auto-plan card: its number in the plan, the title,
+/// and a START HERE chip on the picked first task.
+class _PlanRow extends StatelessWidget {
+  final int index;
+  final FocusTaskView task;
+  const _PlanRow({required this.index, required this.task});
+
+  @override
+  Widget build(BuildContext context) {
+    final isFirst = index == 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: isFirst
+                  ? TodoistLight.verb
+                  : TodoistLight.surfaceVariant,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '${index + 1}',
+                style: AppTypography.labelMd.copyWith(
+                  color: isFirst ? Colors.white : TodoistLight.secondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(task.title, style: AppTypography.bodyLg),
+          ),
+          if (isFirst) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: TodoistLight.verb.withValues(alpha: .18),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: TodoistLight.verb),
+              ),
+              child: Text(
+                'START HERE',
+                style: AppTypography.caption.copyWith(
+                  color: TodoistLight.verb,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ],
